@@ -231,12 +231,8 @@ def get_next_expected_action(obs, history):
 
 def _correct_action(action_dict, expected, target, obs):
     """Apply correction only if LLM went off-track."""
-    if not expected or action_dict["action"] == expected:
-        return action_dict, False
-
-    target_email = getattr(target, "email", None)
-    target_id    = getattr(target, "customer_id", target)
-
+    target_id = getattr(target, "customer_id", target)
+    
     customer_tier = "standard"
     for c in obs.customers:
         if c.customer_id == target_id:
@@ -244,6 +240,18 @@ def _correct_action(action_dict, expected, target, obs):
             break
     tier_priority   = {"enterprise": "high", "premium": "medium", "standard": "low"}
     correct_priority = tier_priority.get(customer_tier, "medium")
+
+    # NEW: Check if the action type matches but the priority is wrong for a ticket
+    is_priority_mismatch = (
+        expected == "ticket_create" 
+        and action_dict["action"] == "ticket_create" 
+        and action_dict.get("priority") != correct_priority
+    )
+
+    if not expected or (action_dict["action"] == expected and not is_priority_mismatch):
+        return action_dict, False
+
+    target_email = getattr(target, "email", None)
 
     corrections = {
         "email_read": {
