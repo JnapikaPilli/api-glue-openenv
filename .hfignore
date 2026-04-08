@@ -1,0 +1,17 @@
+# Dev dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build artifacts
+# frontend/dist/ (REQUIRED FOR UI)
+frontend/.next/
+*.egg-info/
+
+# Local/dev files
+.env
+*.log
+outputs/
+.git/
