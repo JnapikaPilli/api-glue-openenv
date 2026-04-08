@@ -1,9 +1,11 @@
 ---
 title: Virtual Ops Manager
-emoji: ⚡
+emoji: 🚀
 colorFrom: blue
 colorTo: indigo
 sdk: docker
+app_port: 7860
+license: mit
 pinned: false
 ---
 
