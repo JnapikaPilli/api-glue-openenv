@@ -23,6 +23,14 @@ TASKS = {
 }
 
 
+def _clamp_score(score: float) -> float:
+    """
+    Ensures the score is strictly between 0 and 1 as per Phase 2 requirements.
+    Maps [0, 1] -> [0.01, 0.99] using a linear transformation.
+    """
+    return round((score * 0.98) + 0.01, 3)
+
+
 def grade(env) -> float:
     emails    = env.email_api.emails
     sent      = env.email_api.sent_emails
@@ -34,7 +42,7 @@ def grade(env) -> float:
         first_email = list(emails.values())[0]
         read    = first_email["read"]
         replied = any(e["to"] == first_email["sender"] for e in sent)
-        return round(0.4 * read + 0.6 * replied, 2)
+        return _clamp_score(0.4 * read + 0.6 * replied)
 
     # ── medium_01 ─────────────────────────────────────────────────────────
     elif env.task_id == "medium_01":
@@ -48,7 +56,7 @@ def grade(env) -> float:
         ticket_ok = any(t["linked_customer"] == cid for t in tickets.values())
         replied   = any(e["to"] == target["email"] for e in sent)
 
-        return round(0.2 * read + 0.4 * ticket_ok + 0.4 * replied, 2)
+        return _clamp_score(0.2 * read + 0.4 * ticket_ok + 0.4 * replied)
 
     # ── hard_01 ───────────────────────────────────────────────────────────
     elif env.task_id == "hard_01":
@@ -85,7 +93,7 @@ def grade(env) -> float:
             - wrong_priority_penalty
         )
 
-        return max(0.0, round(raw_score, 2))
+        return _clamp_score(max(0.0, raw_score))
 
     # ── expert_01 ─────────────────────────────────────────────────────────
     elif env.task_id == "expert_01":
@@ -117,7 +125,7 @@ def grade(env) -> float:
             - spam_penalty
         )
 
-        return max(0.0, round(raw_score, 2))
+        return _clamp_score(max(0.0, raw_score))
 
     # ── expert_02 (Strategic Fork) ────────────────────────────────────────
     elif env.task_id == "expert_02":
@@ -135,6 +143,6 @@ def grade(env) -> float:
             0.8 * security_ok
             - autopilot_penalty
         )
-        return max(0.0, round(raw_score, 2))
+        return _clamp_score(max(0.0, raw_score))
 
-    return 0.0
+    return _clamp_score(0.0)
