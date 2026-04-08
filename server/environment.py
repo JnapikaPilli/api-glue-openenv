@@ -205,13 +205,13 @@ class Environment:
         if is_security_fork:
             if action_code == "ticket_new":
                 val = -0.50
-                reason = "SECURITY ALERT: Autopilot Ticket Created - Major Risk Identified!"
+                reason = "SECURITY ALERT: Autopilot Breach - Ticket created for hijacked/at-risk account!"
             elif action_code == "reply_new":
                 val = -0.30
-                reason = "SECURITY ALERT: Unauthorized Communication for compromised account!"
+                reason = "SECURITY ALERT: Data Leak Risk - Unauthorized communication with compromised entity!"
             elif action_code == "spam_ok":
                 val = 0.80  # Much higher reward for the correct reasoning path
-                reason = "STRATEGIC WIN: Phishing/Compromised account blocked successfully."
+                reason = "STRATEGIC WIN: Phishing/Security risk identified via CRM and neutralized."
 
         # Bonus: Ticket priority matching
         if action_code == "ticket_new" and action_obj:

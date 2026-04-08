@@ -1,5 +1,5 @@
-from environment import Environment
-from models import Action
+from server.environment import Environment
+from server.models import Action
 
 env = Environment(task_id='medium_01')
 env.reset()
