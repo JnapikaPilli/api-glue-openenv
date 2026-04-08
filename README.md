@@ -14,6 +14,9 @@ pinned: false
 Built for the **Meta AI OpenEnv Hackathon Round 1**, the Virtual Operations Manager is a professional-grade RL environment that simulates the daily workflow of an enterprise support lead. It challenges agents to perform complex triage, cross-reference records, and identify sophisticated security threats.
 
 ## 🚀 Environment Overview
+### Motivation
+As AI agents transition from games to work, there is a critical need for benchmarks that test **Operational Reasoning**—the ability to cross-reference disparate data sources (like CRM notes) before taking irreversible actions. This environment models the high-stakes triage tasks performed by enterprise support leads.
+
 Unlike simple game-based environments, this project tests real-world operational reasoning. The agent acts as a Support Manager with access to an **Email Inbox**, a **CRM Database**, and a **Ticketing System**.
 
 ### 🛠 Action Space
@@ -25,7 +28,12 @@ Unlike simple game-based environments, this project tests real-world operational
 - `done()`: Signal task completion.
 
 ### 🧠 Observation Space
-The agent receives a structured state containing a list of `emails`, `customers` (including security notes), and active `tickets`.
+The agent receives a structured state containing:
+- **`emails`**: List of objects with `email_id`, `sender`, `subject`, `body`, and `read` status.
+- **`customers`**: List of objects with `customer_id`, `name`, `email`, `tier` (Standard, Premium, Enterprise), and `account_status`.
+- **`tickets`**: List of objects with `ticket_id`, `title`, `priority`, and `linked_customer`.
+- **`step_number`**: Current step in the episode.
+- **`task_id`**: Current task being performed.
 
 ---
 
