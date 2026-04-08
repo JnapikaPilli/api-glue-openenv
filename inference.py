@@ -337,9 +337,9 @@ def run_agent():
             obs, reward, done, info = env.step(action)
 
             # Hackathon compliance log
-            action_str = "'" + json.dumps(action_dict, separators=(',', ':')) + "'"
+            action_json = json.dumps(action_dict, separators=(',', ':'))
             step_rewards.append(reward.value)
-            log_step(env.step_number, action_str, reward.value, done, None, reward.reasoning)
+            log_step(env.step_number, action_json, reward.value, done, None, reward.reasoning)
 
         final_score = info.get("score", 0.0)
         success = final_score > 0
