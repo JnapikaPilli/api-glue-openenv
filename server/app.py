@@ -1,12 +1,13 @@
 import asyncio
 import json
 import os
-from typing import Any, Dict, List
+import uuid
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,8 +15,9 @@ from pydantic import BaseModel
 
 from .environment import Environment
 from .models import Action
+from inference import get_action_strategic as get_action_from_llm
 
-app = FastAPI(title="OpenEnv - Meta Hackathon")
+app = FastAPI(title="OpenEnv - Virtual Operations Manager (Elite)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,197 +27,176 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_env: Environment = Environment(task_id="hard_01")
+# ── Multi-Session Management ───────────────────────────────────────────────
+# In production, this should use Redis. For hackathon, local dict is fine.
+sessions: Dict[str, Environment] = {}
 
+def get_session(session_id: Optional[str]) -> Environment:
+    if not session_id or session_id not in sessions:
+        # Auto-create if not exists (for backward compatibility with simple scripts)
+        sid = session_id or "default"
+        sessions[sid] = Environment(task_id="hard_01")
+        return sessions[sid]
+    return sessions[session_id]
 
-# =========================
-# BASIC ENDPOINTS
-# =========================
+# ── OpenEnv Endpoints ───────────────────────────────────────────────────────
 
 class ResetRequest(BaseModel):
     task_id: str = "hard_01"
+    seed: Optional[int] = None
     hardcore: bool = False
 
-
-@app.post("/api/reset")
 @app.post("/reset")
-def reset_env(req: ResetRequest = None):
-    global _env
-    task_id = req.task_id if req else "hard_01"
-    hardcore = req.hardcore if req else False
-    _env = Environment(task_id=task_id, hardcore=hardcore)
-    return _env.reset()
+@app.post("/api/reset")
+def reset_env(req: ResetRequest, x_session_id: Optional[str] = Header(None)):
+    session_id = x_session_id or "default"
+    env = Environment(task_id=req.task_id, seed=req.seed, hardcore=req.hardcore)
+    env.reset()
+    sessions[session_id] = env
+    return env.state()
 
-
-@app.get("/api/state")
 @app.get("/state")
-def state_env():
-    return _env.state()
+@app.get("/api/state")
+def state_env(x_session_id: Optional[str] = Header(None)):
+    env = get_session(x_session_id)
+    return env.state()
 
-
-@app.post("/api/step")
 @app.post("/step")
-def step_env(action: Action):
-    if _env.done:
+@app.post("/api/step")
+def step_env(action: Action, x_session_id: Optional[str] = Header(None)):
+    env = get_session(x_session_id)
+    if env.done:
         raise HTTPException(status_code=400, detail="Episode done. Reset first.")
-    obs, reward, done, info = _env.step(action)
+    
+    obs, reward, done, info = env.step(action)
     return {"observation": obs, "reward": reward, "done": done, "info": info}
-
 
 @app.get("/api/tools")
 def list_tools():
-    """MCP-style tool discovery endpoint."""
     return {
         "tools": [
-            {
-                "name": "email_read",
-                "description": "Read contents of an email",
-                "parameters": {"email_id": "string"}
-            },
-            {
-                "name": "crm_lookup",
-                "description": "Look up customer details by ID",
-                "parameters": {"customer_id": "string"}
-            },
-            {
-                "name": "ticket_create",
-                "description": "Create a support ticket",
-                "parameters": {
-                    "title": "string",
-                    "priority": "low|medium|high",
-                    "customer_id": "string"
-                }
-            },
-            {
-                "name": "email_send",
-                "description": "Send a reply email",
-                "parameters": {
-                    "to": "string",
-                    "subject": "string",
-                    "body": "string"
-                }
-            },
-            {
-                "name": "mark_spam",
-                "description": "Mark irrelevant or phishing emails as spam",
-                "parameters": {"email_id": "string"}
-            },
-            {
-                "name": "done",
-                "description": "Signal task completion",
-                "parameters": {}
-            }
+            {"name": "email_read", "description": "Read email content", "parameters": {"email_id": "string"}},
+            {"name": "crm_lookup", "description": "Look up customer", "parameters": {"customer_id": "string"}},
+            {"name": "kb_search", "description": "Search technical knowledge base", "parameters": {"kb_query": "string"}},
+            {"name": "ticket_create", "description": "Create ticket", "parameters": {"title": "string", "priority": "low|medium|high", "customer_id": "string"}},
+            {"name": "email_send", "description": "Send reply", "parameters": {"to": "string", "subject": "string", "body": "string"}},
+            {"name": "mark_spam", "description": "Mark as spam/security threat", "parameters": {"email_id": "string"}},
+            {"name": "done", "description": "Complete task", "parameters": {}}
         ]
     }
 
-
-# =========================
-# STREAMING AGENT (NO LOOP ERROR)
-# =========================
+# ── Dashboard Support ──────────────────────────────────────────────────────
 
 @app.get("/api/run_agent")
 async def run_agent_stream(task_id: str = "hard_01", max_steps: int = 25, hardcore: bool = False):
-
+    """Self-contained streaming agent for the React Dashboard."""
     async def event_generator():
         try:
+            # Create a dedicated environment for this dashboard stream
             env = Environment(task_id=task_id, hardcore=hardcore)
             obs = env.reset()
-
-            history: List[Dict[str, Any]] = []
-            done = False
-            info: Dict[str, Any] = {}
-
-            yield sse({"event": "start", "task_id": task_id})
-
-            # 🧠 LLM decision (Lazy load to break circular imports)
-            from inference import get_action_from_llm, get_next_expected_action, _correct_action
+            history = []
             
-            while not done and env.step_number < max_steps:
-                # 🧠 LLM decision
+            yield sse({"event": "start", "task_id": task_id})
+            
+            info = {"score": 0} # Default scope
+            while not env.done and env.step_number < max_steps:
+                # 🏎️ ELITE SPEED UNLOCKED: No synthetic sleep
                 action_dict = get_action_from_llm(obs, history)
+                
+                # 🛡️ Triple-Action Circuit Breaker: If exact same action-parameter pair 3 times, break.
+                recent_history = history[-2:]
+                is_loop = False
+                if len(recent_history) == 2:
+                    h1, h2 = recent_history[0], recent_history[1]
+                    if h1.get("action") == h2.get("action") == action_dict.get("action"):
+                        v1 = h1.get("customer_id") or h1.get("email_id") or h1.get("kb_query")
+                        v2 = h2.get("customer_id") or h2.get("email_id") or h2.get("kb_query")
+                        v3 = action_dict.get("customer_id") or action_dict.get("email_id") or action_dict.get("kb_query")
+                        if v1 == v2 == v3:
+                            is_loop = True
 
-                # 🛡 Basic safety
-                expected, target = get_next_expected_action(obs, history)
-                action_dict, was_corrected = _correct_action(
-                    action_dict, expected, target, obs
-                )
+                if is_loop:
+                    # Determine current score for the final yield (safe default)
+                    current_score = info.get("score", 0) if 'info' in locals() else 0
+                    yield sse({"event": "loop_detected", "message": "Triple-Action Loop detected. Terminating safely.", "score": current_score})
+                    break
 
-                valid_actions = ["email_read", "crm_lookup", "ticket_create", "email_send", "mark_spam", "done"]
-                if action_dict.get("action") not in valid_actions:
-                    action_dict = {
-                        "action": "email_read",
-                        "email_id": "e001",
-                        "reasoning": "Fallback safe action"
-                    }
-
-                if action_dict in history:
-                    if expected:
-                        # Force correction instead of looping
-                        action_dict, _ = _correct_action({"action": expected}, expected, target, obs)
-                        action_dict["reasoning"] = "Corrected: Agent attempted to loop. Forcing next valid action."
-                        was_corrected = True
-                    else:
-                        yield sse({
-                            "event": "loop_detected",
-                            "step": env.step_number
-                        })
-                        break
-
-                history.append(action_dict)
-
-                # 🚀 Execute
                 action = Action(**action_dict)
                 obs, reward, done, info = env.step(action)
-
-                # 📡 Stream
+                
+                # Enrich history for elite reasoning parity
+                action_dict["status"] = "success" if reward.value > 0 else "fail"
+                if action.action == "kb_search" and reward.value > 0:
+                    action_dict["result"] = reward.reasoning
+                
+                history.append(action_dict)
+                
                 yield sse({
                     "event": "step",
                     "step": env.step_number,
                     "action": action_dict,
-                    "reward": round(reward.value, 3),
+                    "reward": reward.value,
                     "score": info.get("score"),
-                    "done": done,
                     "observation": obs.model_dump(),
-                    "was_corrected": was_corrected,
+                    "done": done
                 })
-
-                await asyncio.sleep(0.4)
-
-            yield sse({
-                "event": "end",
-                "final_score": info.get("score", 0.0),
-                "steps": env.step_number
-            })
+                # 🕒 Cognitive Pulse: Stable UI sync
+                await asyncio.sleep(0.1) 
+            
+            yield sse({"event": "end", "final_score": info.get("score")})
         except Exception as e:
-            print(f"  Stream failure: {e}")
-            yield sse({"event": "error", "message": f"Agent error: {str(e)}"})
+            yield sse({"event": "error", "message": str(e)})
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+class EvalRequest(BaseModel):
+    trajectory: List[Dict[str, Any]]
+    task_id: str
 
-# =========================
-# HELPERS
-# =========================
+@app.post("/api/evaluate")
+async def evaluate_mission(req: EvalRequest):
+    """Holistic LLM-as-a-Judge evaluation of the mission trajectory."""
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or "EMPTY", base_url=os.getenv("API_BASE_URL"))
+    
+    # Construct forensic context
+    trace = "\n".join([f"Step {t.get('step')}: {t.get('action', {}).get('action')} -> {t.get('reward')}" for t in req.trajectory])
+    
+    prompt = f"""
+    Evaluate this AI Agent's performance on task '{req.task_id}'.
+    Trajectory:
+    {trace}
+    
+    Score the agent from 0.01 to 0.99 on:
+    1. Forensic Depth (Did it inspect headers/CRM?)
+    2. Security Vigilance (Did it stop fraud?)
+    3. Efficiency (Minimal steps?)
+    
+    Return JSON only: {{"score": float, "reasoning": string}}
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("MODEL_NAME", "gpt-4"),
+            messages=[{"role": "user", "content": prompt}],
+            response_format={ "type": "json_object" }
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        return {"score": 0.5, "reasoning": f"Evaluation fallback: {str(e)}"}
 
 def sse(data):
     return f"data: {json.dumps(data)}\n\n"
 
-
-# =========================
-# STATIC UI (Self-Hosted Dashboard)
-# =========================
-# In production, frontend/dist is built and served at the root.
+# ── Static UI ──────────────────────────────────────────────────────────────
 frontend_path = "frontend/dist"
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 else:
     @app.get("/")
-    def root():
-        return {"message": "OpenEnv Server Running. Frontend not found in /frontend/dist"}
-
-def main():
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    def root(): return {"message": "Server Running - Elite Mode"}
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)

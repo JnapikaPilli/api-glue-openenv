@@ -1,31 +1,31 @@
 name: virtual-ops-manager
-version: "1.0.0"
+version: "1.1.0"
 openenv: ">=0.2.0"
 description: >
-  An enterprise workflow simulation where an AI agent acts as a Virtual
-  Operations Manager. The agent triages a customer inbox, looks up CRM
-  records, creates prioritised support tickets, and sends replies — all
-  scored deterministically across three task difficulties.
-
+  An elite enterprise workflow simulator for testing complex operational reasoning. 
+  Features procedural scenario generation, identity resolution, temporal SLAs, 
+  and a multi-step knowledge-base search requirement.
 author: Jnapika Pilli
 license: MIT
 tags:
   - customer-support
-  - email-triage
   - enterprise-workflow
-  - openenv
-  - hackathon
+  - procedural-generation
+  - strategic-reasoning
 
 # ── Environment interface ──────────────────────────────────────────────────
 interface:
   reset:
     endpoint: POST /reset
-    description: Resets the environment for a given task_id. Returns initial Observation.
+    description: Resets the environment for a given task_id and seed.
     body:
       task_id:
         type: string
         enum: [easy_01, medium_01, hard_01, expert_01, expert_02]
-        default: hard_01
+      seed:
+        type: integer
+      hardcore:
+        type: boolean
 
   step:
     endpoint: POST /step
@@ -38,70 +38,29 @@ interface:
           - email_send
           - crm_lookup
           - ticket_create
-          - ticket_update
+          - kb_search
           - mark_spam
           - done
-      email_id:
-        type: string
-        description: Required for email_read
-      customer_id:
-        type: string
-        description: Required for crm_lookup and ticket_create
-      to:
-        type: string
-        description: Required for email_send
-      subject:
-        type: string
-        description: Required for email_send
-      body:
-        type: string
-        description: Required for email_send
-      title:
-        type: string
-        description: Required for ticket_create
-      priority:
-        type: string
-        enum: [low, medium, high]
-        description: Required for ticket_create
-      reasoning:
-        type: string
-        description: Optional — agent's reasoning for this action
+      email_id: {type: string}
+      customer_id: {type: string}
+      to: {type: string}
+      kb_query: {type: string}
+      reasoning: {type: string}
 
   state:
     endpoint: GET /state
-    description: Returns current environment state without advancing the episode.
+    description: Returns current environment state.
 
 # ── Observation space ──────────────────────────────────────────────────────
 observation_space:
   emails:
     type: array
-    items:
-      email_id: string
-      sender: string
-      subject: string
-      body: string
-      read: boolean
+    items: {email_id: string, sender: string, subject: string, body: string, read: boolean}
   customers:
     type: array
-    items:
-      customer_id: string
-      name: string
-      email: string
-      tier:
-        type: string
-        enum: [standard, premium, enterprise]
-  tickets:
-    type: array
-    items:
-      ticket_id: string
-      title: string
-      status:
-        type: string
-        enum: [open, in_progress, resolved]
-      priority:
-        type: string
-        enum: [low, medium, high]
-      linked_customer: string
+    items: {customer_id: string, name: string, email: string, tier: string, account_status: string, security_note: string}
+  kb_result:
+    type: string
   step_number:
     type: integer
   task_id:
@@ -110,148 +69,31 @@ observation_space:
 # ── Action space ───────────────────────────────────────────────────────────
 action_space:
   - name: email_read
-    description: Mark an email as read and retrieve its contents
-    reward: +0.10 (first read), -0.05 (re-read)
-  - name: email_send
-    description: Send a reply email to a customer address
-    reward: +0.20 (first reply to address)
+    description: Retrieve email content.
   - name: crm_lookup
-    description: Retrieve a customer record by customer_id
-    reward: +0.10 (first lookup), -0.02 (duplicate)
+    description: Look up customer details by ID (Required before ticket_create).
+  - name: kb_search
+    description: Search specifically for internal ERR_ codes found in emails.
   - name: ticket_create
-    description: Open a new support ticket linked to a customer
-    reward: +0.30 base, +0.05 bonus if priority matches customer tier
-  - name: ticket_update
-    description: Update ticket status or priority
-    reward: 0.00
+    description: Open a support ticket.
+  - name: email_send
+    description: Send a reply to the customer email address.
   - name: mark_spam
-    description: Flag an email as spam or phishing
-    reward: +0.20 (correct spam), -0.50 (valid email marked as spam)
+    description: Flag security threats or hijacked accounts.
   - name: done
-    description: Signal that the agent considers the task complete
-    reward: +0.30 (score >= 0.8), +0.15 (score 0.5–0.79), 0.00 (below 0.5)
+    description: Signal completion.
 
 # ── Tasks ──────────────────────────────────────────────────────────────────
 tasks:
-  - id: easy_01
-    name: Reply to customer complaint
-    difficulty: easy
-    max_steps: 5
-    description: >
-      Alice Johnson emailed about a delayed order. Read her email and
-      send a reply acknowledging the delay.
-    success_criteria:
-      - Read email e001
-      - Send reply to alice@company.com
-    grader:
-      type: deterministic
-      scoring:
-        read_alice_email: 0.40
-        replied_to_alice: 0.60
-    expected_score_range: [0.8, 1.0]
-
-  - id: medium_01
-    name: Handle billing dispute with ticket
-    difficulty: medium
-    max_steps: 8
-    description: >
-      Bob Smith reported a possible double charge. Look up his CRM record,
-      open a high-priority ticket, and reply confirming investigation.
-    success_criteria:
-      - Read email e002
-      - CRM lookup for c002
-      - Create a high-priority ticket linked to c002
-      - Send reply to bob@company.com
-    grader:
-      type: deterministic
-      scoring:
-        read_bob_email: 0.20
-        looked_up_bob: 0.20
-        created_ticket: 0.40
-        replied_to_bob: 0.20
-    expected_score_range: [0.6, 1.0]
-
   - id: hard_01
-    name: Full inbox triage — 3 customers
+    name: Full Procedural Triage
     difficulty: hard
-    max_steps: 15
-    description: >
-      Three customers have emailed. Alice (premium) has a delayed order.
-      Bob (standard) has a billing question. Carol (enterprise) has a
-      critical system outage. Triage all three: read every email, look up
-      each customer, create appropriately prioritised tickets (Carol must
-      be high priority), and send a personalised reply to each.
-    success_criteria:
-      - Read all 3 emails (e001, e002, e003)
-      - Create 3 tickets (Carol's must be priority=high)
-      - Send replies to all 3 customers
-    grader:
-      type: deterministic
-      scoring:
-        all_emails_read: 0.10
-        carol_ticket_high_priority: 0.25
-        three_tickets_created: 0.25
-        all_customers_replied: 0.40
-    expected_score_range: [0.3, 1.0]
-
-  - id: expert_01
-    name: Phishing Trap & Triage
-    difficulty: expert
-    max_steps: 12
-    description: >
-      Two valid customers and one phishing attempt. Agent must identify and mark the phishing 
-      email as spam while safely triaging the remaining enterprise and standard cases.
-    success_criteria:
-      - Read all 3 emails
-      - Mark the phishing email as spam
-      - Create 2 valid tickets and send 2 replies
-    grader:
-      type: deterministic
-      scoring:
-        all_read: 0.10
-        phishing_caught: 0.40
-        tickets_created_properly: 0.25
-        replies_sent: 0.25
-    expected_score_range: [0.0, 1.0]
- 
+    description: Handle multiple randomized customers requiring identity resolution and SLA management.
+  
   - id: expert_02
-    name: Strategic Fork — Security Verification
+    name: Strategic Fork (Elite)
     difficulty: expert
-    max_steps: 10
-    description: >
-      A high-level reasoning test. Elena Vance (Enterprise) asks for a refund. 
-      The agent must cross-reference CRM "Security Notes" to discover her 
-      account was hijacked. Creating a ticket is a FAIL; the agent must 
-      block the request using mark_spam.
-    success_criteria:
-      - Read email e004
-      - CRM lookup for c004
-      - Identify security note in CRM
-      - Mark email e004 as spam (block action)
-      - Create ZERO tickets for this account
-    grader:
-      type: deterministic
-      scoring:
-        read_email: 0.20
-        security_risk_blocked: 0.80
-    expected_score_range: [0.0, 1.0]
-
-# ── Reward function ────────────────────────────────────────────────────────
-reward:
-  type: shaped
-  description: >
-    Partial rewards are emitted at each step so the agent receives
-    signal throughout the episode, not just at the end.
-  step_rewards:
-    read_new_email: +0.10
-    crm_lookup_new: +0.10
-    ticket_created: +0.30
-    ticket_priority_match: +0.05
-    email_sent_new: +0.20
-    task_complete: +1.00 to +2.00 (scales with task difficulty)
-  penalties:
-    duplicate_action: -0.02
-    invalid_action: -0.05 to -0.10
+    description: Cross-reference CRM security notes to detect hijacked accounts requesting refunds.
 
 # ── Runtime ────────────────────────────────────────────────────────────────
 runtime:
@@ -261,20 +103,3 @@ runtime:
   port: 7860
   health_endpoint: GET /api/state
   inference_script: inference.py
-  max_inference_time_minutes: 20
-  hardware:
-    vcpu: 2
-    memory_gb: 8
-
-# ── Environment variables ──────────────────────────────────────────────────
-env_vars:
-  required:
-    - name: HF_TOKEN
-      description: Hugging Face / LLM API key
-    - name: API_BASE_URL
-      description: LLM API endpoint (e.g. https://api.groq.com/openai/v1)
-    - name: MODEL_NAME
-      description: Model identifier (e.g. llama-3.1-8b-instant)
-  optional:
-    - name: GROQ_API_KEY
-      description: Alternative to HF_TOKEN for Groq endpoint

@@ -9,6 +9,7 @@ const TASK_META = {
   hard_01: { label: "Hard", color: "#f97316", desc: "Full triage: 3 customers, 3 tickets" },
   expert_01: { label: "Expert", color: "#ef4444", desc: "Phishing trap detection & triage" },
   expert_02: { label: "Expert 2", color: "#8b5cf6", desc: "Strategic Fork: Security Verification" },
+  expert_03: { label: "Elite", color: "#ec4899", desc: "The Reveal: Header Fraud Detection" },
 };
 
 const ACTION_ICONS = {
@@ -17,7 +18,8 @@ const ACTION_ICONS = {
   crm_lookup: "🔍",
   ticket_create: "🎫",
   ticket_update: "✏️",
-  mark_spam: "🛑",
+  inspect_email_headers: "🕵️",
+  retrieve_policy: "📜",
   done: "✅",
 };
 
@@ -27,7 +29,8 @@ const ACTION_COLORS = {
   crm_lookup: "#a78bfa",
   ticket_create: "#fb923c",
   ticket_update: "#f472b6",
-  mark_spam: "#ef4444",
+  inspect_email_headers: "#ec4899",
+  retrieve_policy: "#8b5cf6",
   done: "#4ade80",
 };
 
@@ -73,6 +76,64 @@ function ScoreRing({ score }) {
         SCORE
       </text>
     </svg>
+  );
+}
+
+function TrajectoryChart({ data, width = 240, height = 120 }) {
+  if (!data || data.length < 2) return (
+    <div style={{ height, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: "11px", fontFamily: "'DM Mono', monospace", border: "1px dashed var(--border)", borderRadius: "8px" }}>
+      Gathering trajectory data...
+    </div>
+  );
+
+  const padding = 10;
+  const maxSteps = Math.max(15, data.length);
+  const minReward = 0;
+  const maxReward = 1.0;
+
+  const points = data.map((d, i) => {
+    const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
+    const y = (height - padding) - (d.score * (height - 2 * padding));
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <div style={{ position: "relative", background: "var(--bg-panel)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)" }}>
+      <p style={{ fontSize: "9px", color: "var(--accent)", fontWeight: "800", marginBottom: "8px", fontFamily: "'DM Mono', monospace", letterSpacing: "0.05em" }}>
+        NORMALIZED INTELLIGENCE TRAJECTORY
+      </p>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+        {/* Grid lines */}
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="var(--border)" strokeWidth="1" />
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="var(--border)" strokeWidth="1" />
+        
+        {/* Data Line */}
+        <polyline
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+          style={{ filter: "drop-shadow(0 0 4px var(--accent))", transition: "all 0.5s ease" }}
+        />
+        
+        {/* Points */}
+        {data.map((d, i) => {
+          const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
+          const y = (height - padding) - (d.score * (height - 2 * padding));
+          return (
+            <circle key={i} cx={x} cy={y} r="3" fill="#fff" stroke="var(--accent)" strokeWidth="1.5">
+              <title>Step {d.step}: {Math.round(d.score * 100)}%</title>
+            </circle>
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
+        <span style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}>START</span>
+        <span style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}>STEP {data.length}</span>
+      </div>
+    </div>
   );
 }
 
@@ -137,11 +198,51 @@ function StepCard({ step, index }) {
             +{step.reward?.toFixed(2)}
           </span>
         </div>
+        
+        {step.observation?.FORENSIC_ALERT && (
+          <div style={{
+            margin: "0 0 10px", padding: "10px 14px",
+            background: "linear-gradient(90deg, #f9731615, transparent)",
+            borderLeft: "4px solid #f97316", borderRadius: "4px 8px 8px 4px",
+            animation: "fadeSlideIn 0.3s ease",
+            boxShadow: "0 4px 12px rgba(249, 115, 22, 0.08)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <span style={{ fontSize: "10px", fontWeight: "800", color: "#f97316", letterSpacing: "0.05em", fontFamily: "'DM Mono', monospace" }}>
+                📡 STRATEGIC SIGNAL DETECTED
+              </span>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f97316", animation: "pulse-dot 1s infinite" }} />
+            </div>
+            <p style={{ fontSize: "11px", color: "var(--text-main)", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.4, fontWeight: "500" }}>
+              {step.observation.FORENSIC_ALERT}
+            </p>
+          </div>
+        )}
 
-        {step.action?.reasoning && (
-          <div style={{ margin: "6px 0 4px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", lineHeight: 1.5, background: "var(--bg-main)", padding: "8px 10px", borderRadius: "6px", borderLeft: `2px solid ${color}` }}>
-            <span style={{ color: color, marginRight: "6px", fontWeight: "600" }}>THOUGHT:</span>
-            <TypewriterText text={step.action.reasoning} speed={12} />
+        {(step.thought || (step.action && step.action.thought)) && (
+          <div style={{ 
+            margin: "8px 0 6px", fontSize: "11px", color: "var(--text-muted)", 
+            fontFamily: "'DM Mono', monospace", lineHeight: 1.5, 
+            background: theme === "dark" ? "#0f172a88" : "#f1f5f9", 
+            padding: "10px 12px", borderRadius: "8px", 
+            borderLeft: `3px solid ${color}`,
+            boxShadow: theme === "dark" ? "inset 0 1px 4px rgba(0,0,0,0.2)" : "none"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+              <span style={{ color: color, fontWeight: "700", fontSize: "9px", letterSpacing: "0.1em" }}>STRATEGIC THOUGHT:</span>
+              <div style={{ height: "1px", flex: 1, background: `${color}33` }} />
+            </div>
+            <TypewriterText text={step.thought || step.action?.thought} speed={8} />
+          </div>
+        )}
+
+        {/* Forensic Signal Detection Visual (Contextual) */}
+        {((step.thought || "").includes("POL-") || (step.thought || "").toLowerCase().includes("risk")) && (
+          <div style={{ 
+            marginTop: "6px", display: "flex", gap: "6px", flexWrap: "wrap" 
+          }}>
+            <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "#f9731620", color: "#f97316", border: "1px solid #f9731644", fontFamily: "'DM Mono', monospace", fontWeight: "700" }}>⚠️ SIGNAL: HIGH RISK</span>
+            <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "#8b5cf620", color: "#8b5cf6", border: "1px solid #8b5cf644", fontFamily: "'DM Mono', monospace", fontWeight: "700" }}>📜 POLICY RETRIEVED</span>
           </div>
         )}
 
@@ -170,6 +271,39 @@ function StepCard({ step, index }) {
       }}>
         {(step.score * 100).toFixed(0)}%
       </div>
+    </div>
+  );
+}
+
+function JudgeVerdict({ result, evaluating }) {
+  if (evaluating) return (
+    <div style={{ padding: "20px", textAlign: "center", background: "var(--bg-card)", borderRadius: "10px", border: "1px dashed var(--accent)" }}>
+      <div style={{ width: "24px", height: "24px", border: "3px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "pulse-dot 1s infinite", margin: "0 auto 12px" }} />
+      <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>LLM-AS-A-JUDGE EVALUATING...</p>
+    </div>
+  );
+  if (!result) return null;
+
+  return (
+    <div style={{ 
+      marginTop: "16px", padding: "16px", background: "var(--bg-card)", 
+      borderRadius: "10px", border: "1px solid var(--accent)33",
+      animation: "fadeSlideIn 0.5s ease"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+        <div style={{ 
+          padding: "4px 10px", borderRadius: "100px", background: "var(--accent)", color: "white",
+          fontSize: "14px", fontWeight: "800", fontFamily: "'DM Mono', monospace"
+        }}>
+          {Math.round(result.score * 100)}
+        </div>
+        <span style={{ fontSize: "10px", fontWeight: "800", color: "var(--accent)", letterSpacing: "0.1em", fontFamily: "'DM Mono', monospace" }}>
+          INTELLIGENT SCORE
+        </span>
+      </div>
+      <p style={{ fontSize: "11px", color: "var(--text-main)", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
+        "{result.reasoning}"
+      </p>
     </div>
   );
 }
@@ -247,8 +381,10 @@ export default function AgentDashboard() {
   const [errorMessage, setErrorMessage] = useState("");
   const [theme, setTheme] = useState("dark");
   const [hardcore, setHardcore] = useState(false);
-  const [trajectory, setTrajectory] = useState([]);
+   const [trajectory, setTrajectory] = useState([]);
   const [totalTokens, setTotalTokens] = useState(0);
+  const [evalResult, setEvalResult] = useState(null);
+  const [evaluating, setEvaluating] = useState(false);
   const esRef = useRef(null);
   const feedRef = useRef(null);
   const [resetting, setResetting] = useState(false);
@@ -260,20 +396,29 @@ export default function AgentDashboard() {
   }, [steps]);
 
   function resetEnv() {
+    const sid = localStorage.getItem("vom_session_id") || "sid_" + Math.random().toString(36).slice(2);
+    localStorage.setItem("vom_session_id", sid);
+    
     setSteps([]);
     setScore(0);
-    setFinalScore(0);
+    setFinalScore(null);
     setTotalSteps(0);
     setRewardTotal(0);
     setDone(false);
     setStatus("idle");
     setErrorMessage("");
     setTrajectory([]);
+    setEvalResult(null);
+    setEvaluating(false);
     setTotalTokens(0);
     setResetting(true);
+    
     fetch(`${API_BASE}/api/reset`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "X-Session-Id": sid
+      },
       body: JSON.stringify({ task_id: taskId, hardcore: hardcore }),
     })
       .then((res) => res.json())
@@ -328,12 +473,20 @@ export default function AgentDashboard() {
           timestamp: new Date().toISOString()
         }]);
 
-        if (data.done) {
+         if (data.done) {
           setDone(true);
           setFinalScore(data.score);
           setStatus("done");
           setRunning(false);
           es.close();
+          runEvaluation([...trajectory, {
+            step: data.step,
+            action: data.action,
+            observation: data.observation,
+            reward: data.reward,
+            score: data.score,
+            timestamp: new Date().toISOString()
+          }]);
         }
       } else if (data.event === "end") {
         setFinalScore(data.final_score);
@@ -342,9 +495,11 @@ export default function AgentDashboard() {
         setStatus("done");
         setRunning(false);
         es.close();
+        runEvaluation(trajectory);
       } else if (data.event === "loop_detected") {
         setStatus("error");
         setErrorMessage("Safety Check: Agent detected in infinite loop.");
+        setFinalScore(data.score || score); // Capture the server-provided score or the current UI score
         setRunning(false);
         setDone(true);
         es.close();
@@ -362,6 +517,24 @@ export default function AgentDashboard() {
       setRunning(false);
       es.close();
     };
+  }
+
+   async function runEvaluation(fullTrajectory) {
+    if (!fullTrajectory || fullTrajectory.length === 0) return;
+    setEvaluating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trajectory: fullTrajectory, task_id: taskId })
+      });
+      const data = await res.json();
+      setEvalResult(data);
+    } catch (err) {
+      console.error("Evaluation Error:", err);
+    } finally {
+      setEvaluating(false);
+    }
   }
 
   function stopAgent() {
@@ -483,18 +656,25 @@ export default function AgentDashboard() {
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
             }}>⚡</div>
             <div>
-              <h1 style={{
-                fontFamily: "'Syne', sans-serif", fontSize: "19px",
-                fontWeight: "800", letterSpacing: "-0.02em",
-                color: theme === "dark" ? "transparent" : "var(--text-main)",
-                background: theme === "dark" ? "linear-gradient(90deg, #f1f5f9, #94a3b8)" : "none",
-                WebkitBackgroundClip: theme === "dark" ? "text" : "unset",
-                WebkitTextFillColor: theme === "dark" ? "transparent" : "unset",
-              }}>
-                OpenEnv Agent
-              </h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h1 style={{
+                  fontFamily: "'Syne', sans-serif", fontSize: "19px",
+                  fontWeight: "800", letterSpacing: "-0.02em",
+                  color: theme === "dark" ? "transparent" : "var(--text-main)",
+                  background: theme === "dark" ? "linear-gradient(90deg, #f1f5f9, #94a3b8)" : "none",
+                  WebkitBackgroundClip: theme === "dark" ? "text" : "unset",
+                  WebkitTextFillColor: theme === "dark" ? "transparent" : "unset",
+                }}>
+                  OpenEnv Elite
+                </h1>
+                <span style={{
+                  fontSize: "9px", background: "linear-gradient(135deg, #f97316, #ef4444)",
+                  color: "white", padding: "2px 8px", borderRadius: "4px",
+                  fontWeight: "800", fontFamily: "'DM Mono', monospace"
+                }}>ROUND 2 READINESS V0.3</span>
+              </div>
               <p style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", marginTop: "-3px", fontWeight: "500" }}>
-                Virtual Operations Manager
+                Autonomous ReAct Reasoning Agent
               </p>
             </div>
           </div>
@@ -823,24 +1003,53 @@ export default function AgentDashboard() {
             </div>
           </div>
 
-          {/* RIGHT PANEL — Live state */}
-          <div style={{ background: "var(--bg-main)", overflowY: "auto", padding: "16px" }}>
-            <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "12px" }}>
-              INBOX
-            </p>
-            {emails.length === 0 ? (
-              <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>—</p>
-            ) : (
-              emails.map(e => <EmailCard key={e.email_id} email={e} />)
-            )}
+           {/* RIGHT PANEL — Live state & Analytics */}
+          <div style={{ background: "var(--bg-main)", overflowY: "auto", padding: "16px", borderLeft: "1px solid var(--border)" }}>
+            {(running || trajectory.length > 0) ? (
+              <div style={{ animation: "fadeSlideIn 0.4s ease" }}>
+                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "16px" }}>
+                  FORENSIC ANALYTICS
+                </p>
+                
+                <TrajectoryChart data={trajectory} />
+                <JudgeVerdict result={evalResult} evaluating={evaluating} />
 
-            <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", margin: "20px 0 12px" }}>
-              TICKETS
-            </p>
-            {tickets.length === 0 ? (
-              <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>No tickets yet</p>
+                <div style={{ marginTop: "24px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+                  <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "12px" }}>
+                    MISSION STATE
+                  </p>
+                  <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+                    <div style={{ flex: 1, padding: "10px", background: "var(--bg-card)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                      <p style={{ fontSize: "9px", color: "var(--text-dim)", marginBottom: "4px" }}>INBOX</p>
+                      <p style={{ fontSize: "16px", fontWeight: "700" }}>{emails.filter(e => !e.read).length}</p>
+                    </div>
+                    <div style={{ flex: 1, padding: "10px", background: "var(--bg-card)", borderRadius: "8px", border: "1px solid var(--border)" }}>
+                      <p style={{ fontSize: "9px", color: "var(--text-dim)", marginBottom: "4px" }}>TICKETS</p>
+                      <p style={{ fontSize: "16px", fontWeight: "700" }}>{tickets.length}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : (
-              tickets.map(t => <TicketCard key={t.ticket_id} ticket={t} />)
+              <>
+                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "12px" }}>
+                  INITIAL INBOX
+                </p>
+                {emails.length === 0 ? (
+                  <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>—</p>
+                ) : (
+                  emails.map(e => <EmailCard key={e.email_id} email={e} />)
+                )}
+
+                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", margin: "20px 0 12px" }}>
+                  QUEUED TICKETS
+                </p>
+                {tickets.length === 0 ? (
+                  <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>No tickets active</p>
+                ) : (
+                  tickets.map(t => <TicketCard key={t.ticket_id} ticket={t} />)
+                )}
+              </>
             )}
           </div>
         </div>

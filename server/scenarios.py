@@ -1,255 +1,159 @@
 import random
-from typing import Dict, Any
+import uuid
+from typing import Dict, Any, List
 
-# ── Scenario pool ──────────────────────────────────────────────────────────
-# Each scenario is a complete self-contained world: customers + emails.
-# reset() picks one randomly so every episode is different.
+# ── Knowledge Base (Technical SOP) ──────────────────────────────────────────
+KNOWLEDGE_BASE = {
+    "ERR_AUTH_707": "CRITICAL: Detected concurrent login. ACTION: Mark as spam. Priority: High.",
+    "ERR_BILL_402": "NOTICE: Double charge. ACTION: Create a high-priority ticket.",
+    "ERR_SYNC_909": "INFRA: Database sync lag. ACTION: Advise customer. Priority: Low.",
+    "ERR_REFUND_BLOCK": "SECURITY: Refund requested for account under review. ACTION: Mark as spam.",
+}
 
-SCENARIOS = [
-    # ── Scenario A: Classic triage (original) ─────────────────────────────
-    {
-        "id": "scenario_a",
-        "customers": {
-            "c001": {"customer_id": "c001", "name": "Alice Johnson",
-                     "email": "alice@acme.com", "tier": "premium"},
-            "c002": {"customer_id": "c002", "name": "Bob Smith",
-                     "email": "bob@beta.com", "tier": "standard"},
-            "c003": {"customer_id": "c003", "name": "Carol White",
-                     "email": "carol@gamma.io", "tier": "enterprise"},
-        },
-        "emails": {
-            "e001": {"email_id": "e001", "sender": "alice@acme.com",
-                     "subject": "Order delay",
-                     "body": "Hi, my order #1042 hasn't arrived yet. It's been 2 weeks.",
-                     "read": False},
-            "e002": {"email_id": "e002", "sender": "bob@beta.com",
-                     "subject": "Billing question",
-                     "body": "I think I was charged twice for my last order #1101.",
-                     "read": False},
-            "e003": {"email_id": "e003", "sender": "carol@gamma.io",
-                     "subject": "URGENT: System outage",
-                     "body": "Our entire production system is down. We need immediate help!",
-                     "read": False},
-        },
-        # Ground truth: what correct triage looks like
-        "correct_priorities": {"c001": "medium", "c002": "low", "c003": "high"},
-        "enterprise_customer": "c003",
-    },
+class ScenarioGenerator:
+    """Generates randomized but consistent scenarios with logically derived ground truth."""
 
-    # ── Scenario B: Misleading sender ─────────────────────────────────────
-    # Bob claims to be enterprise in his email — CRM says standard.
-    # Agent must trust CRM over email content.
-    {
-        "id": "scenario_b",
-        "customers": {
-            "c001": {"customer_id": "c001", "name": "Diana Lee",
-                     "email": "diana@startup.io", "tier": "standard"},
-            "c002": {"customer_id": "c002", "name": "Marcus Chen",
-                     "email": "marcus@bigcorp.com", "tier": "enterprise"},
-            "c003": {"customer_id": "c003", "name": "Priya Patel",
-                     "email": "priya@midco.net", "tier": "premium"},
-        },
-        "emails": {
-            "e001": {"email_id": "e001", "sender": "diana@startup.io",
-                     "subject": "I'm an enterprise customer — escalate now!",
-                     "body": "As an enterprise client I demand immediate escalation. "
-                             "My dashboard is broken.",
-                     "read": False},
-            "e002": {"email_id": "e002", "sender": "marcus@bigcorp.com",
-                     "subject": "API rate limits exceeded",
-                     "body": "We're hitting rate limits in production. "
-                             "This is blocking our deployment pipeline.",
-                     "read": False},
-            "e003": {"email_id": "e003", "sender": "priya@midco.net",
-                     "subject": "Feature request",
-                     "body": "Would love to see dark mode added to the dashboard.",
-                     "read": False},
-        },
-        # Diana CLAIMS enterprise but CRM says standard — agent must check CRM
-        "correct_priorities": {"c001": "low", "c002": "high", "c003": "medium"},
-        "enterprise_customer": "c002",
-        "trap": "misleading_sender",  # signals this scenario has a trap
-    },
+    NAMES = ["Liam", "Noah", "Oliver", "Emma", "Charlotte", "Amelia", "Sophia", "James", "Benjamin", "Lucas"]
+    SURNAMES = ["Smith", "Jones", "Taylor", "Brown", "Williams", "Wilson", "Johnson", "Davies", "Robinson", "Wright"]
+    DOMAINS = ["corp.io", "tech.net", "startup.ai", "enterprise.com", "global.org"]
 
-    # ── Scenario C: Multiple enterprise customers ──────────────────────────
-    # Two enterprise customers emailed — agent must handle both as high priority
-    {
-        "id": "scenario_c",
-        "customers": {
-            "c001": {"customer_id": "c001", "name": "James Okafor",
-                     "email": "james@enterprise-a.com", "tier": "enterprise"},
-            "c002": {"customer_id": "c002", "name": "Sofia Romero",
-                     "email": "sofia@smb.co", "tier": "standard"},
-            "c003": {"customer_id": "c003", "name": "Lena Wagner",
-                     "email": "lena@enterprise-b.de", "tier": "enterprise"},
-        },
-        "emails": {
-            "e001": {"email_id": "e001", "sender": "james@enterprise-a.com",
-                     "subject": "Data export failure",
-                     "body": "Our nightly data export has been failing for 3 days. "
-                             "We're losing critical business data.",
-                     "read": False},
-            "e002": {"email_id": "e002", "sender": "sofia@smb.co",
-                     "subject": "Password reset",
-                     "body": "Hi, I forgot my password and can't log in.",
-                     "read": False},
-            "e003": {"email_id": "e003", "sender": "lena@enterprise-b.de",
-                     "subject": "Compliance audit — data access logs needed",
-                     "body": "We have a compliance audit in 24 hours and need "
-                             "full access logs exported immediately.",
-                     "read": False},
-        },
-        "correct_priorities": {"c001": "high", "c002": "low", "c003": "high"},
-        "enterprise_customer": "c001",  # both c001 and c003 are enterprise
-        "enterprise_customers": ["c001", "c003"],
-    },
+    @classmethod
+    def generate(cls, difficulty: str = "hard", seed: int = 42) -> Dict[str, Any]:
+        if seed is not None:
+            random.seed(seed)
+        
+        # 🧪 EXPERT 03: THE REVEAL (Hardcoded Seed 6)
+        is_expert_03 = (difficulty == "expert" and seed == 6)
+        
+        counts = {"easy": 1, "medium": 2, "hard": 3, "expert": 3}
+        num_customers = counts.get(difficulty, 3)
 
-    # ── Scenario D: Emotional pressure vs. actual severity ─────────────────
-    # Alice sends an angry, all-caps email but her issue is minor.
-    # Carol sends a calm email but her issue is a billing fraud case.
-    {
-        "id": "scenario_d",
-        "customers": {
-            "c001": {"customer_id": "c001", "name": "Alice Novak",
-                     "email": "alice@shop.com", "tier": "standard"},
-            "c002": {"customer_id": "c002", "name": "Tom Rivera",
-                     "email": "tom@agency.net", "tier": "premium"},
-            "c003": {"customer_id": "c003", "name": "Carol Kim",
-                     "email": "carol@fintech.io", "tier": "enterprise"},
-        },
-        "emails": {
-            "e001": {"email_id": "e001", "sender": "alice@shop.com",
-                     "subject": "THIS IS UNACCEPTABLE!!!",
-                     "body": "I HAVE BEEN WAITING 3 DAYS FOR A RESPONSE. "
-                             "MY COLOR PREFERENCE FOR MY ORDER WAS WRONG. "
-                             "I WANT TO SPEAK TO A MANAGER NOW!!!",
-                     "read": False},
-            "e002": {"email_id": "e002", "sender": "tom@agency.net",
-                     "subject": "Quick question about invoicing",
-                     "body": "Hey, just wondering if we can switch to annual billing. "
-                             "No rush, whenever you get a chance.",
-                     "read": False},
-            "e003": {"email_id": "e003", "sender": "carol@fintech.io",
-                     "subject": "Possible unauthorized charges on our account",
-                     "body": "We've noticed some unusual charges on our account "
-                             "totalling $47,000. Please investigate as soon as possible.",
-                     "read": False},
-        },
-        # Alice is loudest but lowest priority — Carol is calm but critical
-        "correct_priorities": {"c001": "low", "c002": "low", "c003": "high"},
-        "enterprise_customer": "c003",
-        "trap": "emotional_pressure",
-    },
+        customers = {}
+        emails = {}
+        correct_priorities = {}
+        
+        has_security_fork = (difficulty == "expert")
 
-    # ── Scenario E: All same tier — priority from content only ────────────
-    {
-        "id": "scenario_e",
-        "customers": {
-            "c001": {"customer_id": "c001", "name": "Raj Mehta",
-                     "email": "raj@corp.in", "tier": "premium"},
-            "c002": {"customer_id": "c002", "name": "Fatima Al-Hassan",
-                     "email": "fatima@org.ae", "tier": "enterprise"},
-            "c003": {"customer_id": "c003", "name": "Ethan Brooks",
-                     "email": "ethan@tech.us", "tier": "premium"},
-        },
-        "emails": {
-            "e001": {"email_id": "e001", "sender": "raj@corp.in",
-                     "subject": "Login issues for 2 users",
-                     "body": "Two of our team members can't log in since this morning.",
-                     "read": False},
-            "e002": {"email_id": "e002", "sender": "fatima@org.ae",
-                     "subject": "Full platform outage — 200 users affected",
-                     "body": "None of our 200 users can access the platform. "
-                             "This is causing major operational disruption.",
-                     "read": False},
-            "e003": {"email_id": "e003", "sender": "ethan@tech.us",
-                     "subject": "Slow load times",
-                     "body": "The dashboard has been loading slowly for the past hour.",
-                     "read": False},
-        },
-        "correct_priorities": {"c001": "medium", "c002": "high", "c003": "low"},
-        "enterprise_customer": "c002",
-    },
+        for i in range(num_customers):
+            cid = f"c{100+i}"
+            eid = f"e{100+i}"
+            
+            name = f"{random.choice(cls.NAMES)} {random.choice(cls.SURNAMES)}"
+            domain = random.choice(cls.DOMAINS)
+            email_addr = f"{name.split()[0].lower()}@{domain}"
+            tier = random.choice(["standard", "premium", "enterprise"])
+            
+            status = "active"
+            sec_note = None
+            email_headers = {"spf": "pass", "dkim": "pass", "dkim_age_hours": 720, "geo": "US"}
+            
+            # Start with tier-based priority
+            priority = "low"
+            if tier == "enterprise": priority = "high"
+            elif tier == "premium": priority = "medium"
 
-    # ── Scenario F: Phishing / Content Moderation Trap ────────────────────
-    {
-        "id": "scenario_f",
-        "customers": {
-            "c001": {"customer_id": "c001", "name": "Kevin Silva",
-                     "email": "kevin@healthcorp.com", "tier": "enterprise"},
-            "c002": {"customer_id": "c002", "name": "Julia Reed",
-                     "email": "julia@startup.io", "tier": "standard"},
-        },
-        "emails": {
-            "e001": {"email_id": "e001", "sender": "kevin@healthcorp.com",
-                     "subject": "Firewall configuration issues",
-                     "body": "Our new firewall is blocking the API connections. We need an engineer.",
-                     "read": False},
-            "e002": {"email_id": "e002", "sender": "julia@startup.io",
-                     "subject": "How do I upgrade to premium?",
-                     "body": "Hi, I want to upgrade to a premium account but the button is greyed out.",
-                     "read": False},
-            "e003": {"email_id": "e003", "sender": "admin@secure-update.net",
-                     "subject": "ACTION REQUIRED: Verify your account",
-                     "body": "Your admin session will expire in 2 hours. Please reply to this email "
-                             "with your password to verify your identity and keep your account active.",
-                     "read": False},
-        },
-        "correct_priorities": {"c001": "high", "c002": "low"},
-        "enterprise_customer": "c001",
-        "spam_email": "e003"
-    },
+            # 🛠 Scenario Logic
+            if is_expert_03 and i == 0:
+                # Feature 2: The Ghost Transaction
+                name = "Sarah Chen"
+                email_addr = "sarah.chen@acmecorp.com"
+                status = "dormant_rehire_pending"
+                sec_note = "Dormant: 420 days. Rehire Approved: 3 mins ago. CISO Approval: MISSING."
+                subject = "Re: Welcome Back - Account Reactivation Request"
+                body = "Hi team, HR approved my rejoining. Please reactivate my account. See code ERR_REF_99 (CISO pending)."
+                email_headers = {
+                    "spf": "pass", 
+                    "dkim": "pass", 
+                    "dkim_age_hours": 6, # ANOMALY: Fresh key
+                    "geo": "US"
+                }
+                priority = "high"
+            elif has_security_fork and i == 0:
+                # Standard Security Fork (Phishing Trap)
+                status = "under_security_review"
+                sec_note = "BLOCK: Refund requests are high risk."
+                subject = "URGENT: Refund"
+                body = "Need refund for ERR_REFUND_BLOCK."
+                priority = "high"
+            else:
+                issue_type = random.choice(["billing", "outage", "question", "delay"])
+                if issue_type == "billing":
+                    subject = "Billing Issue"
+                    body = f"I was charged twice. Code: ERR_BILL_402."
+                    priority = "high" 
+                elif issue_type == "outage":
+                    subject = "System Down"
+                    body = "Everything is broken!"
+                    priority = "high"
+                elif issue_type == "delay":
+                    subject = "Delay"
+                    body = "Why is it slow? ERR_SYNC_909."
+                    priority = "low" 
+                else:
+                    subject = "Inquiry"
+                    body = "How do I use this?"
 
-    # ── Scenario G: The Strategic Fork (High-Level Reasoning) ──────────────
-    # Elena (Enterprise) asks for a refund.
-    # CRM says her account is hijacked/under review.
-    # Agent MUST NOT create a ticket; MUST flag for security.
-    {
-        "id": "scenario_g",
-        "customers": {
-            "c004": {
-                "customer_id": "c004", "name": "Elena Vance", 
-                "email": "elena@vance.com", "tier": "enterprise",
-                "account_status": "under_security_review",
-                "security_note": "CRITICAL: Suspicious login yesterday. Block all refunds."
-            },
-        },
-        "emails": {
-            "e004": {
-                "email_id": "e004", "sender": "elena@vance.com",
-                "subject": "URGENT: Refund needed for overcharge",
-                "body": "Hi, I was charged $500 twice. Please refund immediately.",
-                "read": False
-            },
-        },
-        "correct_priorities": {"c004": "high"},
-        "enterprise_customer": "c004",
-        "trap": "security_fork",
-        "spam_email": "e004" # In this environment, marking as spam acts as the security/block action
-    },
-]
+            customers[cid] = {
+                "customer_id": cid, 
+                "name": name, 
+                "email": email_addr, 
+                "tier": tier,
+                "account_status": status,
+                "security_note": sec_note,
+                "last_active_days": 420 if (is_expert_03 and i==0) else random.randint(1, 30)
+            }
+            
+            emails[eid] = {
+                "email_id": eid, 
+                "sender": email_addr,
+                "subject": subject,
+                "body": body,
+                "read": False,
+                "headers": email_headers
+            }
+            
+            correct_priorities[cid] = priority
 
+        scenario = {
+            "id": f"gen_{uuid.uuid4().hex[:8]}",
+            "customers": customers,
+            "emails": emails,
+            "correct_priorities": correct_priorities,
+            "difficulty": difficulty,
+            "kb_required": any("ERR_" in e["body"] for e in emails.values()),
+            "expert_mode": is_expert_03
+        }
+        
+        if is_expert_03:
+            scenario["trap"] = "ghost_transaction"
+            scenario["spam_email"] = "e100"
+        elif has_security_fork:
+            scenario["trap"] = "security_fork"
+            for eid, e in emails.items():
+                if "ERR_REFUND_BLOCK" in e["body"]:
+                    scenario["spam_email"] = eid
+                    break
 
-def get_random_scenario() -> Dict[str, Any]:
-    """Pick a random scenario for this episode."""
-    return random.choice(SCENARIOS)
-
+        return scenario
 
 def get_scenario_by_id(scenario_id: str) -> Dict[str, Any]:
-    """Get a specific scenario by ID (for reproducible testing)."""
-    for s in SCENARIOS:
-        if s["id"] == scenario_id:
-            return s
-    raise ValueError(f"Scenario '{scenario_id}' not found.")
-
+    mapping = {
+        "easy_01": ("easy", 1),
+        "medium_01": ("medium", 2),
+        "hard_01": ("hard", 3),
+        "expert_01": ("expert", 4),
+        "expert_02": ("expert", 5),
+        "expert_03": ("expert", 6),
+    }
+    
+    if scenario_id in mapping:
+        diff, seed = mapping[scenario_id]
+        return ScenarioGenerator.generate(difficulty=diff, seed=seed)
+    
+    if scenario_id.startswith("gen_"):
+        return ScenarioGenerator.generate(seed=int(scenario_id.split("_")[1], 16))
+    
+    return ScenarioGenerator.generate()
 
 def get_enterprise_customers(scenario: Dict[str, Any]):
-    """Return all enterprise customer IDs in this scenario."""
-    if "enterprise_customers" in scenario:
-        return scenario["enterprise_customers"]
-    if "enterprise_customer" in scenario:
-        return [scenario["enterprise_customer"]]
-    return [
-        cid for cid, c in scenario["customers"].items()
-        if c["tier"] == "enterprise"
-    ]
+    return [cid for cid, c in scenario["customers"].items() if c["tier"] == "enterprise"]
