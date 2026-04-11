@@ -1,9 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Optional
-
-class Reward(BaseModel):
-    value: float
-    reasoning: Optional[str] = None
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
 
 class Email(BaseModel):
     email_id: str
@@ -11,6 +7,7 @@ class Email(BaseModel):
     subject: str
     body: str
     read: bool
+    headers: Optional[Dict[str, Any]] = None
 
 class Customer(BaseModel):
     customer_id: str
@@ -28,12 +25,18 @@ class Ticket(BaseModel):
     linked_customer: str
 
 class Observation(BaseModel):
-    emails: List[Email]
-    customers: List[Customer]
-    tickets: List[Ticket]
-    inbox_count: int
-    step_number: int
-    task_id: str
+    # --- OpenEnv Core Mandatory Fields ---
+    done: bool = False
+    reward: float = 0.0
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    # --- Virtual Ops Manager State fields ---
+    emails: List[Email] = Field(default_factory=list)
+    customers: List[Customer] = Field(default_factory=list)
+    tickets: List[Ticket] = Field(default_factory=list)
+    inbox_count: int = 0
+    step_number: int = 0
+    task_id: str = ""
     last_action: Optional[str] = None
     last_reward: Optional[float] = None
     last_reward_reasoning: Optional[str] = None
@@ -41,14 +44,15 @@ class Observation(BaseModel):
 
 class Action(BaseModel):
     action: str
-    reasoning: Optional[str] = None
+    thought: Optional[str] = None
+    # Action-specific parameters
     email_id: Optional[str] = None
     customer_id: Optional[str] = None
     kb_query: Optional[str] = None
-    query: Optional[str] = None # For retrieve_policy
+    query: Optional[str] = None
     title: Optional[str] = None
     priority: Optional[str] = None
     to: Optional[str] = None
     subject: Optional[str] = None
     body: Optional[str] = None
-    thought: Optional[str] = None # Reasoning Trace
+    metadata: Dict[str, Any] = Field(default_factory=dict)

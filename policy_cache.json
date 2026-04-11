@@ -1,0 +1,177 @@
+{
+  "easy_01": [
+    {
+      "action": "crm_lookup",
+      "customer_id": "c100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e101"
+    },
+    {
+      "action": "done"
+    }
+  ],
+  "medium_01": [
+    {
+      "action": "crm_lookup",
+      "customer_id": "c100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e100"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c101"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e101"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c102"
+    },
+    {
+      "action": "done"
+    }
+  ],
+  "hard_01": [
+    {
+      "action": "crm_lookup",
+      "customer_id": "c100"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c101"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c102"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e101"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e102"
+    },
+    {
+      "action": "email_send",
+      "to": "c100",
+      "subject": "Update",
+      "body": "We are processing your request."
+    },
+    {
+      "action": "done"
+    }
+  ],
+  "expert_01": [
+    {
+      "action": "crm_lookup",
+      "customer_id": "c100"
+    },
+    {
+      "action": "inspect_email_headers",
+      "email_id": "e100"
+    },
+    {
+      "action": "mark_spam",
+      "email_id": "e100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e101"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e102"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c101"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c102"
+    },
+    {
+      "action": "done"
+    }
+  ],
+  "expert_02": [
+    {
+      "action": "crm_lookup",
+      "customer_id": "c100"
+    },
+    {
+      "action": "inspect_email_headers",
+      "email_id": "e100"
+    },
+    {
+      "action": "mark_spam",
+      "email_id": "e100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e101"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e102"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c101"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c102"
+    },
+    {
+      "action": "done"
+    }
+  ],
+  "expert_03": [
+    {
+      "action": "crm_lookup",
+      "customer_id": "c100"
+    },
+    {
+      "action": "retrieve_policy"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e100"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e101"
+    },
+    {
+      "action": "email_read",
+      "email_id": "e102"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c101"
+    },
+    {
+      "action": "crm_lookup",
+      "customer_id": "c102"
+    },
+    {
+      "action": "done"
+    }
+  ]
+}

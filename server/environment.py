@@ -1,4 +1,4 @@
-from .models import Observation, Reward
+from .models import Observation
 from .apis import EmailAPI, CRMAPI, TicketAPI
 from .tasks import grade
 from .policy_rag import get_policy_context
@@ -81,11 +81,20 @@ class Environment:
     def state(self):
         return self._get_observation()
 
-    def _get_observation(self):
+    def _get_observation(self, reward: float = 0.0):
         if self.email_api is None:
-            return Observation(emails=[], customers=[], tickets=[], inbox_count=0, step_number=0, task_id="")
+            return Observation(emails=[], customers=[], tickets=[], inbox_count=0, step_number=0, task_id="", done=False, reward=0.0)
             
+        final_score = grade(env=self)
+        
+        # Build standard OpenEnv Observation (Unified)
         return Observation(
+            done=self.done,
+            reward=reward,
+            metadata={
+                "score": max(0.001, min(0.999, final_score)),
+                "scenario": self.scenario["id"] if self.scenario else self.task_id
+            },
             emails=list(self.email_api.emails.values()),
             customers=list(self.crm_api.customers.values()),
             tickets=list(self.ticket_api.tickets.values()),
@@ -218,11 +227,7 @@ class Environment:
         self.last_reward = reward_val
         self.last_reward_reasoning = reason
 
-        final_score = grade(env=self)
         # Ensure reward is strictly in (0, 1)
-        clamped_val = max(0.001, min(0.999, reward_val))
+        clamped_reward = max(0.001, min(0.999, reward_val))
         
-        return self._get_observation(), Reward(value=clamped_val, reasoning=reason), self.done, {
-            "score": max(0.001, min(0.999, final_score)),
-            "scenario": self.scenario["id"]
-        }
+        return self._get_observation(reward=clamped_reward)

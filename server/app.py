@@ -7,18 +7,24 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Header
+from openenv.core.http_server import create_app
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-
+from fastapi import Header
 from .environment import Environment
-from .models import Action
+from .models import Action, Observation
 from inference import get_action_strategic as get_action_from_llm
 
-app = FastAPI(title="OpenEnv - Virtual Operations Manager (Elite)")
+app = create_app(
+    Environment,
+    Action,
+    Observation
+)
 
+app.title = "OpenEnv - Virtual Operations Manager (Elite)"
+
+# Re-enable CORS for the factory-created app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,37 +45,13 @@ def get_session(session_id: Optional[str]) -> Environment:
         return sessions[sid]
     return sessions[session_id]
 
-# ── OpenEnv Endpoints ───────────────────────────────────────────────────────
+# Standard OpenEnv routes are already registered via create_app(/reset, /step, /state).
+# We keep these aliases for backward compatibility with the Dashboard if needed.
 
-class ResetRequest(BaseModel):
-    task_id: str = "hard_01"
-    seed: Optional[int] = None
-    hardcore: bool = False
-
-@app.post("/reset")
-@app.post("/api/reset")
-def reset_env(req: ResetRequest, x_session_id: Optional[str] = Header(None)):
-    session_id = x_session_id or "default"
-    env = Environment(task_id=req.task_id, seed=req.seed, hardcore=req.hardcore)
-    env.reset()
-    sessions[session_id] = env
-    return env.state()
-
-@app.get("/state")
 @app.get("/api/state")
-def state_env(x_session_id: Optional[str] = Header(None)):
+def api_state(x_session_id: Optional[str] = Header(None)):
     env = get_session(x_session_id)
     return env.state()
-
-@app.post("/step")
-@app.post("/api/step")
-def step_env(action: Action, x_session_id: Optional[str] = Header(None)):
-    env = get_session(x_session_id)
-    if env.done:
-        raise HTTPException(status_code=400, detail="Episode done. Reset first.")
-    
-    obs, reward, done, info = env.step(action)
-    return {"observation": obs, "reward": reward, "done": done, "info": info}
 
 @app.get("/api/tools")
 def list_tools():
