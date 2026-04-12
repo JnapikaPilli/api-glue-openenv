@@ -1,5 +1,7 @@
+// V0.2.1-Resilient - Deadline Stability Build
 import React, { useState, useEffect, useRef } from "react";
 
+// Intelligent Pathing: Works locally (5173/7860) and on Hugging Face Spaces (relative)
 const API_BASE = window.location.port === "5173" ? "http://127.0.0.1:7860" : "";
 
 const TASK_META = {
@@ -45,12 +47,12 @@ class DashboardErrorBoundary extends React.Component {
       return (
         <div style={{ padding: "40px", background: "#020817", color: "#f1f5f9", height: "100vh", fontFamily: "monospace" }}>
           <h2 style={{ color: "#ef4444" }}>🚨 DASHBOARD CRITICAL ERROR</h2>
-          <p>The UI encountered a runtime exception. This is usually due to malformed data.</p>
-          <pre style={{ background: "#0f172a", padding: "20px", borderRadius: "8px", overflow: "auto" }}>
+          <p>The UI encountered a runtime exception. This is usually due to malformed data from the backend.</p>
+          <pre style={{ background: "#0f172a", padding: "20px", borderRadius: "8px", overflow: "auto", fontSize: "11px" }}>
             {this.state.error?.stack}
           </pre>
           <button onClick={() => window.location.reload()} style={{ padding: "10px 20px", background: "#0ea5e9", border: "none", color: "white", cursor: "pointer", borderRadius: "4px" }}>
-            Reload Dashboard
+            Emergency Restore
           </button>
         </div>
       );
@@ -78,8 +80,10 @@ function TypewriterText({ text, speed = 25 }) {
 function ScoreRing({ score }) {
   const r = 52;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (score || 0) * circ;
-  const color = score >= 0.8 ? "#4ade80" : score >= 0.5 ? "#facc15" : "#f97316";
+  // NaN-Protection for SVG
+  const safeScore = score || 0;
+  const offset = circ - safeScore * circ;
+  const color = safeScore >= 0.8 ? "#4ade80" : safeScore >= 0.5 ? "#facc15" : "#f97316";
   return (
     <svg width="130" height="130" viewBox="0 0 130 130">
       <circle cx="65" cy="65" r={r} fill="none" stroke="var(--border)" strokeWidth="10" />
@@ -93,7 +97,7 @@ function ScoreRing({ score }) {
         style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }}
       />
       <text x="65" y="60" textAnchor="middle" fill="var(--text-main)" fontSize="22" fontFamily="'DM Mono', monospace" fontWeight="700">
-        {Math.round((score || 0) * 100)}
+        {Math.round(safeScore * 100)}
       </text>
       <text x="65" y="78" textAnchor="middle" fill="var(--text-muted)" fontSize="11" fontFamily="'DM Mono', monospace">
         SCORE
@@ -110,20 +114,57 @@ function TrajectoryChart({ data, width = 240, height = 120 }) {
   );
   const padding = 10;
   const maxSteps = Math.max(15, data.length);
+  // NaN-Protection for points calculation
   const points = data.map((d, i) => {
     const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
-    const y = (height - padding) - ((d.score || 0) * (height - 2 * padding));
+    const scoreVal = d.score || 0;
+    const y = (height - padding) - (scoreVal * (height - 2 * padding));
     return `${x},${y}`;
   }).join(" ");
   return (
-    <svg width={width} height={height} style={{ overflow: "visible" }}>
-      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" />
-      {data.map((d, i) => {
-         const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
-         const y = (height - padding) - ((d.score || 0) * (height - 2 * padding));
-         return <circle key={i} cx={x} cy={y} r="3" fill="var(--accent)" />;
-      })}
-    </svg>
+    <div style={{ position: "relative", background: "var(--bg-panel)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)" }}>
+      <p style={{ fontSize: "9px", color: "var(--accent)", fontWeight: "800", marginBottom: "8px", fontFamily: "'DM Mono', monospace", letterSpacing: "0.05em" }}>
+        NORMALIZED INTELLIGENCE TRAJECTORY
+      </p>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="var(--border)" strokeWidth="1" />
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="var(--border)" strokeWidth="1" />
+        <polyline fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points} style={{ filter: "drop-shadow(0 0 4px var(--accent))", transition: "all 0.5s ease" }} />
+        {data.map((d, i) => (
+          <circle key={i} cx={padding + (i / (maxSteps - 1)) * (width - 2 * padding)} cy={(height - padding) - ((d.score || 0) * (height - 2 * padding))} r="3" fill="#fff" stroke="var(--accent)" strokeWidth="1.5" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function StepCard({ step, index, theme }) {
+  const icon = ACTION_ICONS[step.action?.action] || "⚙️";
+  const color = ACTION_COLORS[step.action?.action] || "#94a3b8";
+  return (
+    <div style={{
+      display: "flex", gap: "12px", alignItems: "flex-start",
+      padding: "14px 16px", background: "var(--bg-card)",
+      border: `1px solid ${color}22`, borderLeft: `3.3px solid ${color}`,
+      borderRadius: "8px", marginBottom: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+    }}>
+      <div style={{ minWidth: "32px", height: "32px", background: `${color}18`, border: `1px solid ${color}44`, borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px" }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+          <span style={{ fontSize: "11px", fontFamily: "'DM Mono', monospace", color: color, fontWeight: "600" }}>STEP {step.step}</span>
+          <span style={{ fontSize: "11px", fontFamily: "'DM Mono', monospace", color: "#94a3b8", background: "var(--border)", padding: "1px 7px", borderRadius: "4px" }}>{step.action?.action}</span>
+          <span style={{ marginLeft: "auto", fontSize: "11px", color: "#4ade80", fontFamily: "'DM Mono', monospace" }}>+{(step.reward || 0).toFixed(2)}</span>
+        </div>
+        {step.thought && (
+          <div style={{ margin: "8px 0 6px", fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", background: theme === "dark" ? "#0f172a88" : "#f1f5f9", padding: "10px 12px", borderRadius: "8px", borderLeft: `3px solid ${color}` }}>
+             <TypewriterText text={step.thought} speed={8} />
+          </div>
+        )}
+      </div>
+      <div style={{ minWidth: "42px", textAlign: "right", fontSize: "13px", fontFamily: "'DM Mono', monospace", color: (step.score || 0) >= 0.8 ? "#4ade80" : "#94a3b8", fontWeight: "600" }}>
+        {Math.round((step.score || 0) * 100)}%
+      </div>
+    </div>
   );
 }
 
@@ -134,11 +175,9 @@ function AgentDashboardContent() {
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [finalScore, setFinalScore] = useState(null);
-  const [totalSteps, setTotalSteps] = useState(0);
   const [observation, setObservation] = useState(null);
   const [status, setStatus] = useState("idle");
   const [rewardTotal, setRewardTotal] = useState(0);
-  const [errorMessage, setErrorMessage] = useState("");
   const [theme, setTheme] = useState("dark");
   const [hardcore, setHardcore] = useState(false);
   const [trajectory, setTrajectory] = useState([]);
@@ -153,20 +192,12 @@ function AgentDashboardContent() {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [steps]);
 
+  // Logic restoration from V0.2.1
   function resetEnv() {
     const sid = localStorage.getItem("vom_session_id") || "sid_" + Math.random().toString(36).slice(2);
     localStorage.setItem("vom_session_id", sid);
-    setSteps([]);
-    setScore(0);
-    setFinalScore(null);
-    setDone(false);
-    setStatus("idle");
-    setErrorMessage("");
-    setTrajectory([]);
-    setEvalResult(null);
-    setEvaluating(false);
-    setTotalTokens(0);
-    setResetting(true);
+    setSteps([]); setScore(0); setFinalScore(null); setDone(false); setStatus("idle");
+    setTrajectory([]); setEvalResult(null); setEvaluating(false); setTotalTokens(0); setResetting(true);
     fetch(`${API_BASE}/api/reset`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Session-Id": sid },
@@ -181,56 +212,32 @@ function AgentDashboardContent() {
 
   function startAgent() {
     if (esRef.current) esRef.current.close();
-    setSteps([]);
-    setScore(0);
-    setFinalScore(null);
-    setRunning(true);
-    setDone(false);
-    setStatus("running");
-    setTrajectory([]);
-    setTotalTokens(0);
+    setSteps([]); setScore(0); setFinalScore(null); setRunning(true); setDone(false); setStatus("running"); setTrajectory([]); setTotalTokens(0);
     const es = new EventSource(`${API_BASE}/api/run_agent?task_id=${taskId}&hardcore=${hardcore}`);
     esRef.current = es;
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.event === "start") { setStatus("running"); }
-        else if (data.event === "step") {
+        if (data.event === "step") {
           setSteps(prev => [...prev, data]);
-          setScore(data.score || 0);
+          setScore(data.score ?? 0);
           setObservation(data.observation);
-          setRewardTotal(prev => prev + (data.reward || 0));
+          setRewardTotal(prev => prev + (data.reward ?? 0));
           const stepTokens = Math.floor((JSON.stringify(data.observation || {}).length + JSON.stringify(data.action || {}).length) / 3.5);
           setTotalTokens(prev => prev + stepTokens);
           setTrajectory(prev => [...prev, { step: data.step, action: data.action, reward: data.reward, score: data.score }]);
           if (data.done) {
-            setDone(true);
-            setFinalScore(data.score);
-            setStatus("done");
-            setRunning(false);
-            es.close();
+            setDone(true); setFinalScore(data.score); setStatus("done"); setRunning(false); es.close();
             runEvaluation([...trajectory, data]);
           }
         } else if (data.event === "end") {
-            setFinalScore(data.final_score);
-            setDone(true);
-            setStatus("done");
-            setRunning(false);
-            es.close();
+            setFinalScore(data.final_score); setDone(true); setStatus("done"); setRunning(false); es.close();
             runEvaluation(trajectory);
         } else if (data.event === "error") {
-            setErrorMessage(data.message);
-            setStatus("error");
-            setRunning(false);
-            es.close();
+            setStatus("error"); setRunning(false); es.close();
         }
-      } catch (e) {
-        console.error("Parse Error", e);
-        setStatus("error");
-        setErrorMessage("Data processing error");
-      }
+      } catch (e) { console.error(e); }
     };
-    es.onerror = () => { setStatus("error"); setErrorMessage("Connection lost"); setRunning(false); es.close(); };
   }
 
   async function runEvaluation(fullTrajectory) {
@@ -238,71 +245,59 @@ function AgentDashboardContent() {
     setEvaluating(true);
     try {
       const res = await fetch(`${API_BASE}/api/evaluate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trajectory: fullTrajectory, task_id: taskId })
       });
-      const data = await res.json();
-      setEvalResult(data);
-    } catch (err) { console.error(err); }
-    finally { setEvaluating(false); }
+      const data = await res.json(); setEvalResult(data);
+    } catch (err) { console.error(err); } finally { setEvaluating(false); }
   }
 
   const meta = TASK_META[taskId] || { label: "Unknown", color: "#ccc", desc: "" };
-  const emails = observation?.emails || [];
-  const tickets = observation?.tickets || [];
 
   return (
-    <div style={{ background: "var(--bg-main)", color: "var(--text-main)", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "'DM Sans', sans-serif" }}>
+    <div className={theme === "light" ? "light-mode" : ""} style={{ background: "var(--bg-main)", color: "var(--text-main)", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif" }}>
        <style>{`
-          :root { --bg-main: #020817; --bg-card: #0f172a; --text-main: #f1f5f9; --text-muted: #94a3b8; --border: #1e293b; --accent: #0ea5e9; }
-          * { box-sizing: border-box; }
-          body { margin: 0; }
+          :root { --bg-main: #020817; --bg-panel: #02081799; --bg-card: #0f172a; --text-main: #f1f5f9; --text-muted: #94a3b8; --border: #1e293b; --accent: #0ea5e9; }
+          .light-mode { --bg-main: #f1f5f9; --bg-panel: #ffffff; --bg-card: #ffffff; --text-main: #0f172a; --text-muted: #334155; --border: #cbd5e1; --accent: #0284c7; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
        `}</style>
-       <header style={{ padding: "16px 40px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1 style={{ margin: 0, fontSize: "1.2rem", color: "var(--accent)" }}>Virtual Ops Manager</h1>
-          <div style={{ display: "flex", gap: "20px" }}>
+       <header style={{ padding: "16px 32px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100, background: "var(--bg-panel)", backdropFilter: "blur(12px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+             <div style={{ width: "38px", height: "38px", background: "linear-gradient(135deg, #0ea5e9, #6366f1)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>⚡</div>
+             <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "18px", fontWeight: "800" }}>OpenEnv Elite <span style={{ fontSize: "9px", background: "#f97316", padding: "2px 6px", borderRadius: "4px", color: "white" }}>V0.2.1 Stable</span></h1>
+          </div>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} style={{ background: "none", border: "none", cursor: "pointer" }}>{theme === "dark" ? "☀️" : "🌙"}</button>
             <select value={taskId} onChange={e => setTaskId(e.target.value)} disabled={running}>
               {Object.keys(TASK_META).map(k => <option key={k} value={k}>{TASK_META[k].label}</option>)}
             </select>
-            <button onClick={startAgent} disabled={running || resetting}>{running ? "Running..." : "Start Agent"}</button>
+            <button onClick={startAgent} disabled={running || resetting} style={{ padding: "8px 16px", background: "var(--accent)", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}>{running ? "Running..." : "Run Agent"}</button>
           </div>
        </header>
-       <main style={{ flex: 1, padding: "20px 40px", display: "grid", gridTemplateColumns: "1fr 350px", gap: "20px" }}>
-           <section style={{ background: "var(--bg-card)", borderRadius: "12px", border: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "#1e293b33", display: "flex", gap: "10px" }}>
-                 <span style={{ color: meta.color }}>●</span> <strong>{meta.label} Mission</strong>
-              </div>
-              <div ref={feedRef} style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-                 {steps.length === 0 && <p style={{ color: "var(--text-muted)" }}>Agent standby. Click Start to begin mission.</p>}
-                 {steps.map((s, i) => (
-                    <div key={i} style={{ marginBottom: "16px", padding: "12px", background: "#1e293b66", borderRadius: "8px" }}>
-                       <strong>Step {s.step}: {s.action?.action}</strong>
-                       <p style={{ margin: "5px 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>{s.action?.thought}</p>
-                    </div>
-                 ))}
-                 {status === "error" && <p style={{ color: "#ef4444" }}>Error: {errorMessage}</p>}
-              </div>
-           </section>
-           <aside style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-               <div style={{ background: "var(--bg-card)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border)", textAlign: "center" }}>
-                  <ScoreRing score={score} />
-               </div>
-               <div style={{ background: "var(--bg-card)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border)" }}>
-                  <h3 style={{ marginTop: 0, fontSize: "0.9rem" }}>Mission Observation</h3>
-                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Emails: {emails.length} | Tickets: {tickets.length}</p>
-               </div>
-           </aside>
+       <main style={{ padding: "24px 32px", display: "grid", gridTemplateColumns: "300px 1fr 260px", gap: "24px", height: "calc(100vh - 71px)" }}>
+          <aside style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+             <div style={{ background: "var(--bg-card)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border)", textAlign: "center" }}>
+                <ScoreRing score={score} />
+             </div>
+             <TrajectoryChart data={trajectory} />
+          </aside>
+          <section ref={feedRef} style={{ background: "var(--bg-card)", borderRadius: "12px", border: "1px solid var(--border)", padding: "20px", overflowY: "auto" }}>
+             {steps.length === 0 && <p style={{ color: "var(--text-muted)", textAlign: "center", marginTop: "40px" }}>Select mission and launch... 🤖</p>}
+             {steps.map((s, i) => <StepCard key={i} step={s} theme={theme} />)}
+          </section>
+          <aside>
+             <div style={{ background: "var(--bg-card)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border)" }}>
+                <h3 style={{ fontSize: "12px", marginBottom: "12px", color: "var(--text-muted)" }}>MISSION STATE</h3>
+                <p style={{ fontSize: "14px", fontWeight: "600" }}>Inbox: {observation?.emails?.length || 0}</p>
+                <p style={{ fontSize: "14px", fontWeight: "600" }}>Tickets: {observation?.tickets?.length || 0}</p>
+             </div>
+          </aside>
        </main>
     </div>
   );
 }
 
-// ── FINAL EXPORT WRAPPED IN SHIELD ──────────────────────────────────────────
 export default function AgentDashboard() {
-  return (
-    <DashboardErrorBoundary>
-      <AgentDashboardContent />
-    </DashboardErrorBoundary>
-  );
+  return <DashboardErrorBoundary><AgentDashboardContent /></DashboardErrorBoundary>;
 }
