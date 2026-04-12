@@ -20,15 +20,22 @@ def run_elite_test(tid="hard_01"):
         step += 1
         action_dict = get_action_strategic(obs, history)
         action = Action(**action_dict)
-        obs, reward, done, info = env.step(action)
+        obs = env.step(action)
+        reward = obs.reward
+        done = obs.done
+        info = obs.metadata
         
         # Track status and reasoning for history awareness
-        action_dict["status"] = "success" if reward.value > 0 else "fail"
-        action_dict["result"] = reward.reasoning
+        action_dict["status"] = "success" if float(reward) > 0 else "fail"
+        # Since we are using the new Observation pattern, reward might be a float
+        # or have a .reasoning if it's the custom reward object. 
+        # But per environment.py, we return a float in metadata['score']
+        # Let's assume reward is the float here.
+        action_dict["result"] = f"Reward: {reward}"
         history.append(action_dict)
         
         final_score = info["score"]
-        print(f"Step {step}: {action.action} | Reward: {reward.value:.2f} | Score: {final_score:.3f} | {reward.reasoning[:80]}...")
+        print(f"Step {step}: {action.action} | Reward: {reward:.2f} | Score: {final_score:.3f}")
 
     print(f"--- ELITE TEST COMPLETE ---")
     print(f"TARGET SCORE: 0.99 | ACTUAL SCORE: {final_score:.3f}")

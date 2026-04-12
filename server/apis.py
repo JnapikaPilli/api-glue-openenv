@@ -48,14 +48,14 @@ class TicketAPI:
         self.tickets = {}
         self.counter = 1
 
-    def create_ticket(self, title: str, priority: str, customer_id: str) -> Dict:
+    def create_ticket(self, title: Optional[str], priority: Optional[str], customer_id: str) -> Dict:
         ticket_id = f"t{self.counter:03d}"
         self.counter += 1
         ticket = {
             "ticket_id": ticket_id,
-            "title": title,
+            "title": title if title and str(title).strip() else "Resolution Request",
             "status": "open",
-            "priority": priority,
+            "priority": priority if priority and str(priority).strip() else "medium",
             "linked_customer": customer_id,
         }
         self.tickets[ticket_id] = ticket

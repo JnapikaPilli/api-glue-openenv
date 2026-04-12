@@ -1,10 +1,10 @@
 name: virtual-ops-manager
-version: "1.1.0"
+version: "1.2.0"
 openenv: ">=0.2.0"
 description: >
   An elite enterprise workflow simulator for testing complex operational reasoning. 
   Features procedural scenario generation, identity resolution, temporal SLAs, 
-  and a multi-step knowledge-base search requirement.
+  and forensic phishing detection.
 author: Jnapika Pilli
 license: MIT
 tags:
@@ -21,7 +21,7 @@ interface:
     body:
       task_id:
         type: string
-        enum: [easy_01, medium_01, hard_01, expert_01, expert_02]
+        enum: [easy_01, medium_01, hard_01, expert_01, expert_02, expert_03]
       seed:
         type: integer
       hardcore:
@@ -48,7 +48,7 @@ interface:
       reasoning: {type: string}
 
   state:
-    endpoint: GET /state
+    endpoint: GET /api/state
     description: Returns current environment state.
 
 # ── Observation space ──────────────────────────────────────────────────────
@@ -85,15 +85,30 @@ action_space:
 
 # ── Tasks ──────────────────────────────────────────────────────────────────
 tasks:
-  - id: hard_01
-    name: Full Procedural Triage
-    difficulty: hard
-    description: Handle multiple randomized customers requiring identity resolution and SLA management.
+  - id: easy_01
+    name: Simple Reply
+    difficulty: easy
+    description: Simple triage of a single billing inquiry.
   
-  - id: expert_02
-    name: Strategic Fork (Elite)
+  - id: medium_01
+    name: CRM Triage
+    difficulty: medium
+    description: Resolve a delay issue after verifying customer identity.
+
+  - id: hard_01
+    name: Batch Operations
+    difficulty: hard
+    description: Handle multiple disparate issues with correct priority management.
+  
+  - id: expert_01
+    name: Phishing Detection
     difficulty: expert
-    description: Cross-reference CRM security notes to detect hijacked accounts requesting refunds.
+    description: Identifying fraudulent senders using security notes.
+
+  - id: expert_03
+    name: Ghost Transaction
+    difficulty: expert
+    description: Complex forensic audit involving dormant-rehire traps.
 
 # ── Runtime ────────────────────────────────────────────────────────────────
 runtime:

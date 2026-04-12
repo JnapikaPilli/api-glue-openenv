@@ -20,5 +20,8 @@ steps = [
 ]
 
 for a in steps:
-    obs, reward, done, info = env.step(a)
-    print('action=' + a.action + ' reward=' + str(round(reward.value,2)) + ' done=' + str(done) + ' score=' + str(info['score']))
+    obs = env.step(a)
+    reward = obs.reward
+    done = obs.done
+    info = obs.metadata
+    print('action=' + a.action + ' reward=' + str(round(float(reward),2)) + ' done=' + str(done) + ' score=' + str(info['score']))

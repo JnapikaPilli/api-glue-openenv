@@ -7,14 +7,15 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 load_dotenv()
 
-from openenv.core.http_server import create_app
+from openenv.core.env_server.http_server import create_app
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import Header
+from pydantic import BaseModel
 from .environment import Environment
 from .models import Action, Observation
-from inference import get_action_strategic as get_action_from_llm
+from inference import get_action_strategic
 
 app = create_app(
     Environment,
@@ -24,7 +25,7 @@ app = create_app(
 
 app.title = "OpenEnv - Virtual Operations Manager (Elite)"
 
-# Re-enable CORS for the factory-created app
+# ── Re-enable CORS for the factory-created app ──────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,6 +54,35 @@ def api_state(x_session_id: Optional[str] = Header(None)):
     env = get_session(x_session_id)
     return env.state()
 
+class ResetRequest(BaseModel):
+    task_id: str = "hard_01"
+    seed: Optional[int] = None
+    hardcore: bool = False
+
+@app.post("/reset")
+@app.post("/api/reset")
+def reset_env(req: ResetRequest, x_session_id: Optional[str] = Header(None)):
+    session_id = x_session_id or "default"
+    env = Environment(task_id=req.task_id, seed=req.seed, hardcore=req.hardcore)
+    env.reset()
+    sessions[session_id] = env
+    return env.state()
+
+@app.post("/step")
+@app.post("/api/step")
+def step_env(action: Action, x_session_id: Optional[str] = Header(None)):
+    env = get_session(x_session_id)
+    if env.done:
+        return {"error": "Episode done. Reset first.", "done": True}
+    
+    obs = env.step(action)
+    return {
+        "observation": obs.model_dump(),
+        "reward": obs.reward,
+        "done": obs.done,
+        "info": obs.metadata
+    }
+
 @app.get("/api/tools")
 def list_tools():
     return {
@@ -70,7 +100,7 @@ def list_tools():
 # ── Dashboard Support ──────────────────────────────────────────────────────
 
 @app.get("/api/run_agent")
-async def run_agent_stream(task_id: str = "hard_01", max_steps: int = 25, hardcore: bool = False):
+async def run_agent_stream(task_id: str = "hard_01", max_steps: int = 35, hardcore: bool = False):
     """Self-contained streaming agent for the React Dashboard."""
     async def event_generator():
         try:
@@ -83,8 +113,8 @@ async def run_agent_stream(task_id: str = "hard_01", max_steps: int = 25, hardco
             
             info = {"score": 0} # Default scope
             while not env.done and env.step_number < max_steps:
-                # 🏎️ ELITE SPEED UNLOCKED: No synthetic sleep
-                action_dict = get_action_from_llm(obs, history)
+                # 🏎️ ELITE STRATEGIC ENGINE: Guideing every mission step
+                action_dict = get_action_strategic(obs, history)
                 
                 # 🛡️ Triple-Action Circuit Breaker: If exact same action-parameter pair 3 times, break.
                 recent_history = history[-2:]
@@ -105,12 +135,15 @@ async def run_agent_stream(task_id: str = "hard_01", max_steps: int = 25, hardco
                     break
 
                 action = Action(**action_dict)
-                obs, reward, done, info = env.step(action)
+                obs = env.step(action)
+                reward = obs.reward
+                done = obs.done
+                info = obs.metadata
                 
                 # Enrich history for elite reasoning parity
-                action_dict["status"] = "success" if reward.value > 0 else "fail"
-                if action.action == "kb_search" and reward.value > 0:
-                    action_dict["result"] = reward.reasoning
+                action_dict["status"] = "success" if float(reward) > 0 else "fail"
+                if action.action == "kb_search" and float(reward) > 0:
+                    action_dict["result"] = f"Reward: {reward}"
                 
                 history.append(action_dict)
                 
@@ -118,7 +151,7 @@ async def run_agent_stream(task_id: str = "hard_01", max_steps: int = 25, hardco
                     "event": "step",
                     "step": env.step_number,
                     "action": action_dict,
-                    "reward": reward.value,
+                    "reward": float(reward),
                     "score": info.get("score"),
                     "observation": obs.model_dump(),
                     "done": done
@@ -179,6 +212,9 @@ else:
     @app.get("/")
     def root(): return {"message": "Server Running - Elite Mode"}
 
-if __name__ == "__main__":
+def main():
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=7860)
+
+if __name__ == "__main__":
+    main()
