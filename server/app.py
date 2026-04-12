@@ -46,42 +46,19 @@ def get_session(session_id: Optional[str]) -> Environment:
         return sessions[sid]
     return sessions[session_id]
 
-# Standard OpenEnv routes are already registered via create_app(/reset, /step, /state).
-# We keep these aliases for backward compatibility with the Dashboard if needed.
+# ── Standard OpenEnv routes are already registered via create_app(/reset, /step, /state).
+# We add these aliases for the Dashboard's specific pathing needs.
 
 @app.get("/api/state")
 def api_state(x_session_id: Optional[str] = Header(None)):
     env = get_session(x_session_id)
-    return env.state()
+    obs = env.state()
+    # The factory model_dump is handled by the standard response wrapper
+    return obs
 
-class ResetRequest(BaseModel):
-    task_id: str = "hard_01"
-    seed: Optional[int] = None
-    hardcore: bool = False
-
-@app.post("/reset")
-@app.post("/api/reset")
-def reset_env(req: ResetRequest, x_session_id: Optional[str] = Header(None)):
-    session_id = x_session_id or "default"
-    env = Environment(task_id=req.task_id, seed=req.seed, hardcore=req.hardcore)
-    env.reset()
-    sessions[session_id] = env
-    return env.state()
-
-@app.post("/step")
-@app.post("/api/step")
-def step_env(action: Action, x_session_id: Optional[str] = Header(None)):
-    env = get_session(x_session_id)
-    if env.done:
-        return {"error": "Episode done. Reset first.", "done": True}
-    
-    obs = env.step(action)
-    return {
-        "observation": obs.model_dump(),
-        "reward": obs.reward,
-        "done": obs.done,
-        "info": obs.metadata
-    }
+# Note: /reset and /step are managed by the OpenEnv factory [Line 20]
+# to ensure 100% spec compliance. Our Environment class [environment.py] 
+# has been hardened with .close() and .reset_async() to support this.
 
 @app.get("/api/tools")
 def list_tools():

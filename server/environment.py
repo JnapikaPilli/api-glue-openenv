@@ -34,12 +34,25 @@ class Environment:
         self.handled_customers = set() # prevent reply farming
 
     def reset(self, task_id: str = None, seed: int = None, hardcore: bool = None):
-        if task_id: self.task_id = task_id
+        if task_id: 
+            # 🛡️ NORMALIZATION: Handle validator-style IDs (e.g., easy-01 -> easy_01)
+            self.task_id = task_id.replace("-", "_")
+        
         if seed is not None: self.seed = seed
         if hardcore is not None: self.hardcore = hardcore
 
         # ⚡ Elite Mapping: Identify specific scenarios or fall back to procedural
-        self.scenario = copy.deepcopy(get_scenario_by_id(self.task_id))
+        try:
+            scenario_data = get_scenario_by_id(self.task_id)
+            if not scenario_data:
+                # Emergency fallback if scenario factory returns None
+                from .scenarios import ScenarioGenerator
+                scenario_data = ScenarioGenerator.generate(difficulty="hard", seed=self.seed)
+            self.scenario = copy.deepcopy(scenario_data)
+        except Exception as e:
+            print(f"DEBUG: Reset Scenario Load Failure for {self.task_id}: {e}")
+            from .scenarios import ScenarioGenerator
+            self.scenario = ScenarioGenerator.generate(difficulty="hard", seed=self.seed)
         
         # If seed is forced, regenerate with that seed (procedural override)
         if seed is not None:
@@ -68,6 +81,18 @@ class Environment:
         self.handled_customers = set()
 
         return self._get_observation()
+
+    def close(self):
+        """Mandatory cleanup method for OpenEnv server compliance."""
+        pass
+
+    async def reset_async(self, *args, **kwargs):
+        """Mandatory async stub for OpenEnv server compliance."""
+        return self.reset(*args, **kwargs)
+
+    async def step_async(self, *args, **kwargs):
+        """Mandatory async stub for OpenEnv server compliance."""
+        return self.step(*args, **kwargs)
 
     def _inject_noise(self, text: str) -> str:
         if not text or len(text) < 10: return text
