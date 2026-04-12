@@ -163,7 +163,6 @@ function StepCard({ step, index, theme }) {
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: "16px",
       }}>{icon}</div>
-
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
           <span style={{
@@ -192,7 +191,6 @@ function StepCard({ step, index, theme }) {
             +{step.reward?.toFixed(2)}
           </span>
         </div>
-
         {step.observation?.FORENSIC_ALERT && (
           <div style={{
             margin: "0 0 10px", padding: "10px 14px",
@@ -212,7 +210,6 @@ function StepCard({ step, index, theme }) {
             </p>
           </div>
         )}
-
         {(step.thought || (step.action && step.action.thought)) && (
           <div style={{
             margin: "8px 0 6px", fontSize: "11px", color: "var(--text-muted)",
@@ -231,14 +228,12 @@ function StepCard({ step, index, theme }) {
             <TypewriterText text={step.thought || step.action?.thought} speed={8} />
           </div>
         )}
-
         {((step.thought || "").includes("POL-") || (step.thought || "").toLowerCase().includes("risk")) && (
           <div style={{ marginTop: "6px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "#f9731620", color: "#f97316", border: "1px solid #f9731644", fontFamily: "'DM Mono', monospace", fontWeight: "700" }}>⚠️ SIGNAL: HIGH RISK</span>
             <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "#8b5cf620", color: "#8b5cf6", border: "1px solid #8b5cf644", fontFamily: "'DM Mono', monospace", fontWeight: "700" }}>📜 POLICY RETRIEVED</span>
           </div>
         )}
-
         {step.action?.to && (
           <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#94a3b8", fontFamily: "'DM Mono', monospace" }}>
             → {step.action.to}
@@ -255,7 +250,6 @@ function StepCard({ step, index, theme }) {
           </p>
         )}
       </div>
-
       <div style={{
         minWidth: "42px", textAlign: "right",
         fontSize: "13px", fontFamily: "'DM Mono', monospace",
@@ -264,39 +258,6 @@ function StepCard({ step, index, theme }) {
       }}>
         {(step.score * 100).toFixed(0)}%
       </div>
-    </div>
-  );
-}
-
-function JudgeVerdict({ result, evaluating }) {
-  if (evaluating) return (
-    <div style={{ padding: "20px", textAlign: "center", background: "var(--bg-card)", borderRadius: "10px", border: "1px dashed var(--accent)" }}>
-      <div style={{ width: "24px", height: "24px", border: "3px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "pulse-dot 1s infinite", margin: "0 auto 12px" }} />
-      <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>LLM-AS-A-JUDGE EVALUATING...</p>
-    </div>
-  );
-  if (!result) return null;
-
-  return (
-    <div style={{
-      marginTop: "16px", padding: "16px", background: "var(--bg-card)",
-      borderRadius: "10px", border: "1px solid var(--accent)33",
-      animation: "fadeSlideIn 0.5s ease"
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-        <div style={{
-          padding: "4px 10px", borderRadius: "100px", background: "var(--accent)", color: "white",
-          fontSize: "14px", fontWeight: "800", fontFamily: "'DM Mono', monospace"
-        }}>
-          {Math.round(result.score * 100)}
-        </div>
-        <span style={{ fontSize: "10px", fontWeight: "800", color: "var(--accent)", letterSpacing: "0.1em", fontFamily: "'DM Mono', monospace" }}>
-          INTELLIGENT SCORE
-        </span>
-      </div>
-      <p style={{ fontSize: "11px", color: "var(--text-main)", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
-        "{result.reasoning}"
-      </p>
     </div>
   );
 }
@@ -564,7 +525,6 @@ export default function AgentDashboard() {
     <div className={theme === "light" ? "light-mode" : ""}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
-
         :root {
           --bg-main: #020817;
           --bg-panel: #02081799;
@@ -576,7 +536,6 @@ export default function AgentDashboard() {
           --accent: #0ea5e9;
           --accent-glow: #0ea5e920;
         }
-
         .light-mode {
           --bg-main: #f1f5f9;
           --bg-panel: #ffffff;
@@ -588,9 +547,7 @@ export default function AgentDashboard() {
           --accent: #0284c7;
           --accent-glow: #0284c710;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
           background: var(--bg-main);
           color: var(--text-main);
@@ -598,11 +555,9 @@ export default function AgentDashboard() {
           min-height: 100vh;
           transition: background 0.3s ease, color 0.3s ease;
         }
-
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: var(--bg-main); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
         @keyframes pulse-dot {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
@@ -616,7 +571,6 @@ export default function AgentDashboard() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-
       <div style={{
         minHeight: "100vh",
         background: "var(--bg-main)",
@@ -625,7 +579,6 @@ export default function AgentDashboard() {
           : "none",
         padding: "0",
       }}>
-
         {/* Header */}
         <div style={{
           borderBottom: "1px solid var(--border)",
@@ -670,7 +623,6 @@ export default function AgentDashboard() {
               </p>
             </div>
           </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "16px", borderRight: "1px solid var(--border)", paddingRight: "24px" }}>
               <button
@@ -680,19 +632,16 @@ export default function AgentDashboard() {
               >
                 {theme === "dark" ? "☀️" : "🌙"}
               </button>
-
               <div
                 onClick={() => {
                   if (resetting) return;
                   const newVal = !hardcore;
                   setHardcore(newVal);
                   if (running) stopAgent();
-
                   setSteps([]);
                   setScore(0);
                   setTotalSteps(0);
                   setResetting(true);
-
                   fetch(`${API_BASE}/api/reset`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -723,7 +672,6 @@ export default function AgentDashboard() {
                 </span>
               </div>
             </div>
-
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               {status === "running" && (
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -755,7 +703,6 @@ export default function AgentDashboard() {
             </div>
           </div>
         </div>
-
         {/* Main layout */}
         <div style={{
           display: "grid",
@@ -763,7 +710,6 @@ export default function AgentDashboard() {
           gap: "0",
           height: "calc(100vh - 69px)",
         }}>
-
           {/* LEFT PANEL */}
           <div style={{
             background: "var(--bg-main)",
@@ -772,7 +718,6 @@ export default function AgentDashboard() {
             overflowY: "auto",
             display: "flex", flexDirection: "column", gap: "24px",
           }}>
-
             <div>
               <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "10px" }}>
                 SELECT TASK
@@ -801,7 +746,6 @@ export default function AgentDashboard() {
                 </button>
               ))}
             </div>
-
             <button onClick={running ? stopAgent : startAgent} style={{
               width: "100%", padding: "14px",
               background: running
@@ -818,7 +762,6 @@ export default function AgentDashboard() {
             >
               {running ? "⏹ Stop Agent" : "▶ Run Agent"}
             </button>
-
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
               <ScoreRing score={score} />
               {finalScore !== null && (
@@ -831,7 +774,6 @@ export default function AgentDashboard() {
                 </div>
               )}
             </div>
-
             <div style={{
               background: "var(--bg-card)", border: "1px solid var(--border)",
               borderRadius: "10px", padding: "14px", display: "grid",
@@ -855,7 +797,6 @@ export default function AgentDashboard() {
                 </div>
               ))}
             </div>
-
             {done && (
               <div style={{
                 marginTop: "12px", background: "var(--bg-card)", border: "1px solid var(--border)",
@@ -878,7 +819,6 @@ export default function AgentDashboard() {
                 </div>
               </div>
             )}
-
             <div style={{
               marginTop: "auto", paddingTop: "24px",
               borderTop: "1px solid var(--border)",
@@ -895,7 +835,6 @@ export default function AgentDashboard() {
                   <li style={{ fontSize: "11px", color: "var(--text-muted)" }}>Spec: OpenEnv v0.2.1-Elite</li>
                 </ul>
               </div>
-
               {done && (
                 <button
                   onClick={downloadTrace}
@@ -911,7 +850,6 @@ export default function AgentDashboard() {
               )}
             </div>
           </div>
-
           {/* CENTER PANEL */}
           <div style={{
             background: "var(--bg-main)",
@@ -932,7 +870,6 @@ export default function AgentDashboard() {
                 </p>
               )}
             </div>
-
             <div ref={feedRef} style={{
               flex: 1, overflowY: "auto",
               padding: "16px 20px",
@@ -949,7 +886,6 @@ export default function AgentDashboard() {
                   </p>
                 </div>
               )}
-
               {steps.length === 0 && running && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: "10px",
@@ -966,12 +902,10 @@ export default function AgentDashboard() {
                   </span>
                 </div>
               )}
-
               {/* ✅ FIX: Pass theme as prop to StepCard */}
               {steps.map((step, i) => (
                 <StepCard key={i} step={step} index={i} theme={theme} />
               ))}
-
               {done && (
                 <div style={{
                   padding: "16px", marginTop: "8px",
@@ -987,7 +921,6 @@ export default function AgentDashboard() {
               )}
             </div>
           </div>
-
           {/* RIGHT PANEL */}
           <div style={{ background: "var(--bg-main)", overflowY: "auto", padding: "16px", borderLeft: "1px solid var(--border)" }}>
             {(running || trajectory.length > 0) ? (
@@ -995,10 +928,7 @@ export default function AgentDashboard() {
                 <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "16px" }}>
                   FORENSIC ANALYTICS
                 </p>
-
                 <TrajectoryChart data={trajectory} />
-                <JudgeVerdict result={evalResult} evaluating={evaluating} />
-
                 <div style={{ marginTop: "24px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
                   <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "12px" }}>
                     MISSION STATE
@@ -1025,7 +955,6 @@ export default function AgentDashboard() {
                 ) : (
                   emails.map(e => <EmailCard key={e.email_id} email={e} />)
                 )}
-
                 <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", margin: "20px 0 12px" }}>
                   QUEUED TICKETS
                 </p>
