@@ -48,5 +48,5 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:7860/api/state || exit 1
 
-# ── Start server (The Golden Entry Point) ───────────────────────────────────
-CMD ["uvicorn", "inference:app", "--host", "0.0.0.0", "--port", "7860"]
+# ── Start server (The Validated #8 Pattern) ───────────────────────────────────
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
