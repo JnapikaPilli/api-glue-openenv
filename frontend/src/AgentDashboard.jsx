@@ -1,7 +1,7 @@
 // V0.2.1 - Last Refined: 2026-04-06T15:22:00
 import { useState, useEffect, useRef } from "react";
 
-const API_BASE = window.location.origin;
+const API_BASE = ""; // Support relative pathing for Hugging Face Spaces
 
 const TASK_META = {
   easy_01: { label: "Easy", color: "#4ade80", desc: "Reply to Alice's order delay" },
