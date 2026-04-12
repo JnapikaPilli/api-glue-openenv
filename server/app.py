@@ -150,7 +150,8 @@ class EvalRequest(BaseModel):
 async def evaluate_mission(req: EvalRequest):
     """Holistic LLM-as-a-Judge evaluation of the mission trajectory."""
     from openai import OpenAI
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY") or "EMPTY", base_url=os.getenv("API_BASE_URL"))
+    # Compliance: Use HF_TOKEN and NO default value per hackathon checklist
+    client = OpenAI(api_key=os.getenv("HF_TOKEN"), base_url=os.getenv("API_BASE_URL"))
     
     # Construct forensic context
     trace = "\n".join([f"Step {t.get('step')}: {t.get('action', {}).get('action')} -> {t.get('reward')}" for t in req.trajectory])
