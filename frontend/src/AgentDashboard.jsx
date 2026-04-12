@@ -1,5 +1,4 @@
-// V0.2.1 - Last Refined: 2026-04-06T15:22:00
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const API_BASE = window.location.port === "5173" ? "http://127.0.0.1:7860" : "";
 
@@ -34,9 +33,34 @@ const ACTION_COLORS = {
   done: "#4ade80",
 };
 
+// 🛡️ UNIVERSAL ERROR SHIELD - NO MORE WHITE PAGES
+class DashboardErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "40px", background: "#020817", color: "#f1f5f9", height: "100vh", fontFamily: "monospace" }}>
+          <h2 style={{ color: "#ef4444" }}>🚨 DASHBOARD CRITICAL ERROR</h2>
+          <p>The UI encountered a runtime exception. This is usually due to malformed data.</p>
+          <pre style={{ background: "#0f172a", padding: "20px", borderRadius: "8px", overflow: "auto" }}>
+            {this.state.error?.stack}
+          </pre>
+          <button onClick={() => window.location.reload()} style={{ padding: "10px 20px", background: "#0ea5e9", border: "none", color: "white", cursor: "pointer", borderRadius: "4px" }}>
+            Reload Dashboard
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function TypewriterText({ text, speed = 25 }) {
   const [displayed, setDisplayed] = useState("");
-
   useEffect(() => {
     setDisplayed("");
     if (!text) return;
@@ -48,14 +72,13 @@ function TypewriterText({ text, speed = 25 }) {
     }, speed);
     return () => clearInterval(interval);
   }, [text, speed]);
-
   return <span>{displayed}{displayed.length < text.length && <span style={{ opacity: 0.5 }}>█</span>}</span>;
 }
 
 function ScoreRing({ score }) {
   const r = 52;
   const circ = 2 * Math.PI * r;
-  const offset = circ - score * circ;
+  const offset = circ - (score || 0) * circ;
   const color = score >= 0.8 ? "#4ade80" : score >= 0.5 ? "#facc15" : "#f97316";
   return (
     <svg width="130" height="130" viewBox="0 0 130 130">
@@ -70,7 +93,7 @@ function ScoreRing({ score }) {
         style={{ transition: "stroke-dashoffset 0.6s ease, stroke 0.4s ease" }}
       />
       <text x="65" y="60" textAnchor="middle" fill="var(--text-main)" fontSize="22" fontFamily="'DM Mono', monospace" fontWeight="700">
-        {Math.round(score * 100)}
+        {Math.round((score || 0) * 100)}
       </text>
       <text x="65" y="78" textAnchor="middle" fill="var(--text-muted)" fontSize="11" fontFamily="'DM Mono', monospace">
         SCORE
@@ -85,289 +108,26 @@ function TrajectoryChart({ data, width = 240, height = 120 }) {
       Gathering trajectory data...
     </div>
   );
-
   const padding = 10;
   const maxSteps = Math.max(15, data.length);
-  const minReward = 0;
-  const maxReward = 1.0;
-
   const points = data.map((d, i) => {
     const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
-    const y = (height - padding) - (d.score * (height - 2 * padding));
+    const y = (height - padding) - ((d.score || 0) * (height - 2 * padding));
     return `${x},${y}`;
   }).join(" ");
-
   return (
-    <div style={{ position: "relative", background: "var(--bg-panel)", padding: "12px", borderRadius: "10px", border: "1px solid var(--border)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)" }}>
-      <p style={{ fontSize: "9px", color: "var(--accent)", fontWeight: "800", marginBottom: "8px", fontFamily: "'DM Mono', monospace", letterSpacing: "0.05em" }}>
-        NORMALIZED INTELLIGENCE TRAJECTORY
-      </p>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
-        {/* Grid lines */}
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="var(--border)" strokeWidth="1" />
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="var(--border)" strokeWidth="1" />
-        
-        {/* Data Line */}
-        <polyline
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-          style={{ filter: "drop-shadow(0 0 4px var(--accent))", transition: "all 0.5s ease" }}
-        />
-        
-        {/* Points */}
-        {data.map((d, i) => {
-          const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
-          const y = (height - padding) - (d.score * (height - 2 * padding));
-          return (
-            <circle key={i} cx={x} cy={y} r="3" fill="#fff" stroke="var(--accent)" strokeWidth="1.5">
-              <title>Step {d.step}: {Math.round(d.score * 100)}%</title>
-            </circle>
-          );
-        })}
-      </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
-        <span style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}>START</span>
-        <span style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}>STEP {data.length}</span>
-      </div>
-    </div>
+    <svg width={width} height={height} style={{ overflow: "visible" }}>
+      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" />
+      {data.map((d, i) => {
+         const x = padding + (i / (maxSteps - 1)) * (width - 2 * padding);
+         const y = (height - padding) - ((d.score || 0) * (height - 2 * padding));
+         return <circle key={i} cx={x} cy={y} r="3" fill="var(--accent)" />;
+      })}
+    </svg>
   );
 }
 
-function StepCard({ step, index }) {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 40);
-    return () => clearTimeout(t);
-  }, []);
-
-  const icon = ACTION_ICONS[step.action?.action] || "⚙️";
-  const color = ACTION_COLORS[step.action?.action] || "#94a3b8";
-
-  return (
-    <div style={{
-      opacity: visible ? 1 : 0,
-      transform: visible ? "translateY(0)" : "translateY(16px)",
-      transition: "opacity 0.35s ease, transform 0.35s ease",
-      display: "flex", gap: "12px", alignItems: "flex-start",
-      padding: "14px 16px",
-      background: "var(--bg-card)",
-      border: `1px solid ${color}22`,
-      borderLeft: `3.3px solid ${color}`,
-      borderRadius: "8px",
-      marginBottom: "8px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
-    }}>
-      <div style={{
-        minWidth: "32px", height: "32px",
-        background: `${color}18`,
-        border: `1px solid ${color}44`,
-        borderRadius: "6px",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "16px",
-      }}>{icon}</div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-          <span style={{
-            fontSize: "11px", fontFamily: "'DM Mono', monospace",
-            color: color, fontWeight: "600", letterSpacing: "0.05em"
-          }}>
-            STEP {step.step}
-          </span>
-          <span style={{
-            fontSize: "11px", fontFamily: "'DM Mono', monospace",
-            color: "#94a3b8", background: "var(--border)",
-            padding: "1px 7px", borderRadius: "4px"
-          }}>
-            {step.action?.action}
-          </span>
-          {step.was_corrected && (
-            <span style={{
-              marginLeft: "auto", fontSize: "10px", fontFamily: "'DM Mono', monospace",
-              color: "#f97316", background: "#f9731615", border: "1px solid #f9731644",
-              padding: "2px 6px", borderRadius: "4px", display: "flex", alignItems: "center", gap: "4px"
-            }}>
-              🛡️ CORRECTOR ENGAGED
-            </span>
-          )}
-          <span style={{ marginLeft: step.was_corrected ? "0" : "auto", fontSize: "11px", color: "#4ade80", fontFamily: "'DM Mono', monospace" }}>
-            +{step.reward?.toFixed(2)}
-          </span>
-        </div>
-        
-        {step.observation?.FORENSIC_ALERT && (
-          <div style={{
-            margin: "0 0 10px", padding: "10px 14px",
-            background: "linear-gradient(90deg, #f9731615, transparent)",
-            borderLeft: "4px solid #f97316", borderRadius: "4px 8px 8px 4px",
-            animation: "fadeSlideIn 0.3s ease",
-            boxShadow: "0 4px 12px rgba(249, 115, 22, 0.08)"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-              <span style={{ fontSize: "10px", fontWeight: "800", color: "#f97316", letterSpacing: "0.05em", fontFamily: "'DM Mono', monospace" }}>
-                📡 STRATEGIC SIGNAL DETECTED
-              </span>
-              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f97316", animation: "pulse-dot 1s infinite" }} />
-            </div>
-            <p style={{ fontSize: "11px", color: "var(--text-main)", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.4, fontWeight: "500" }}>
-              {step.observation.FORENSIC_ALERT}
-            </p>
-          </div>
-        )}
-
-        {(step.thought || (step.action && step.action.thought)) && (
-          <div style={{ 
-            margin: "8px 0 6px", fontSize: "11px", color: "var(--text-muted)", 
-            fontFamily: "'DM Mono', monospace", lineHeight: 1.5, 
-            background: theme === "dark" ? "#0f172a88" : "#f1f5f9", 
-            padding: "10px 12px", borderRadius: "8px", 
-            borderLeft: `3px solid ${color}`,
-            boxShadow: theme === "dark" ? "inset 0 1px 4px rgba(0,0,0,0.2)" : "none"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-              <span style={{ color: color, fontWeight: "700", fontSize: "9px", letterSpacing: "0.1em" }}>STRATEGIC THOUGHT:</span>
-              <div style={{ height: "1px", flex: 1, background: `${color}33` }} />
-            </div>
-            <TypewriterText text={step.thought || step.action?.thought} speed={8} />
-          </div>
-        )}
-
-        {/* Forensic Signal Detection Visual (Contextual) */}
-        {((step.thought || "").includes("POL-") || (step.thought || "").toLowerCase().includes("risk")) && (
-          <div style={{ 
-            marginTop: "6px", display: "flex", gap: "6px", flexWrap: "wrap" 
-          }}>
-            <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "#f9731620", color: "#f97316", border: "1px solid #f9731644", fontFamily: "'DM Mono', monospace", fontWeight: "700" }}>⚠️ SIGNAL: HIGH RISK</span>
-            <span style={{ fontSize: "9px", padding: "2px 6px", borderRadius: "4px", background: "#8b5cf620", color: "#8b5cf6", border: "1px solid #8b5cf644", fontFamily: "'DM Mono', monospace", fontWeight: "700" }}>📜 POLICY RETRIEVED</span>
-          </div>
-        )}
-
-        {step.action?.to && (
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#94a3b8", fontFamily: "'DM Mono', monospace" }}>
-            → {step.action.to}
-          </p>
-        )}
-        {step.action?.email_id && (
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#94a3b8", fontFamily: "'DM Mono', monospace" }}>
-            email: {step.action.email_id}
-          </p>
-        )}
-        {step.action?.customer_id && (
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#94a3b8", fontFamily: "'DM Mono', monospace" }}>
-            customer: {step.action.customer_id}
-          </p>
-        )}
-      </div>
-
-      <div style={{
-        minWidth: "42px", textAlign: "right",
-        fontSize: "13px", fontFamily: "'DM Mono', monospace",
-        color: step.score >= 0.8 ? "#4ade80" : step.score >= 0.5 ? "#facc15" : "#94a3b8",
-        fontWeight: "600"
-      }}>
-        {(step.score * 100).toFixed(0)}%
-      </div>
-    </div>
-  );
-}
-
-function JudgeVerdict({ result, evaluating }) {
-  if (evaluating) return (
-    <div style={{ padding: "20px", textAlign: "center", background: "var(--bg-card)", borderRadius: "10px", border: "1px dashed var(--accent)" }}>
-      <div style={{ width: "24px", height: "24px", border: "3px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "pulse-dot 1s infinite", margin: "0 auto 12px" }} />
-      <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>LLM-AS-A-JUDGE EVALUATING...</p>
-    </div>
-  );
-  if (!result) return null;
-
-  return (
-    <div style={{ 
-      marginTop: "16px", padding: "16px", background: "var(--bg-card)", 
-      borderRadius: "10px", border: "1px solid var(--accent)33",
-      animation: "fadeSlideIn 0.5s ease"
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-        <div style={{ 
-          padding: "4px 10px", borderRadius: "100px", background: "var(--accent)", color: "white",
-          fontSize: "14px", fontWeight: "800", fontFamily: "'DM Mono', monospace"
-        }}>
-          {Math.round(result.score * 100)}
-        </div>
-        <span style={{ fontSize: "10px", fontWeight: "800", color: "var(--accent)", letterSpacing: "0.1em", fontFamily: "'DM Mono', monospace" }}>
-          INTELLIGENT SCORE
-        </span>
-      </div>
-      <p style={{ fontSize: "11px", color: "var(--text-main)", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif", fontStyle: "italic" }}>
-        "{result.reasoning}"
-      </p>
-    </div>
-  );
-}
-
-function EmailCard({ email }) {
-  return (
-    <div style={{
-      padding: "12px 14px",
-      background: "var(--bg-card)",
-      border: `1px solid ${email.read ? "var(--border)" : "#38bdf855"}`,
-      borderRadius: "8px", marginBottom: "6px",
-      opacity: email.read ? 0.6 : 1,
-      transition: "all 0.4s ease",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-        <span style={{ fontSize: "12px", color: "var(--text-main)", fontFamily: "'DM Sans', sans-serif", fontWeight: "600" }}>
-          {email.sender}
-        </span>
-        <span style={{
-          fontSize: "10px", fontFamily: "'DM Mono', monospace",
-          color: email.read ? "#4ade80" : "#f97316",
-          background: email.read ? "#4ade8011" : "#f9731611",
-          padding: "1px 6px", borderRadius: "3px"
-        }}>
-          {email.read ? "READ" : "UNREAD"}
-        </span>
-      </div>
-      <p style={{ margin: 0, fontSize: "11px", color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>
-        {email.subject}
-      </p>
-    </div>
-  );
-}
-
-function TicketCard({ ticket }) {
-  const pColor = ticket.priority === "high" ? "#f97316" : ticket.priority === "medium" ? "#facc15" : "#4ade80";
-  return (
-    <div style={{
-      padding: "10px 14px",
-      background: "var(--bg-card)",
-      border: `1px solid ${pColor}33`,
-      borderLeft: `3.3px solid ${pColor}`,
-      borderRadius: "8px", marginBottom: "6px",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: "12px", color: "var(--text-main)", fontFamily: "'DM Sans', sans-serif", fontWeight: "600" }}>
-          {ticket.title}
-        </span>
-        <span style={{
-          fontSize: "10px", fontFamily: "'DM Mono', monospace",
-          color: pColor, background: `${pColor}15`,
-          padding: "1px 6px", borderRadius: "3px", textTransform: "uppercase"
-        }}>
-          {ticket.priority}
-        </span>
-      </div>
-      <p style={{ margin: "3px 0 0", fontSize: "11px", color: "#64748b", fontFamily: "'DM Mono', monospace" }}>
-        {ticket.ticket_id} · {ticket.linked_customer}
-      </p>
-    </div>
-  );
-}
-
-export default function AgentDashboard() {
+function AgentDashboardContent() {
   const [taskId, setTaskId] = useState("hard_01");
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState([]);
@@ -376,34 +136,29 @@ export default function AgentDashboard() {
   const [finalScore, setFinalScore] = useState(null);
   const [totalSteps, setTotalSteps] = useState(0);
   const [observation, setObservation] = useState(null);
-  const [status, setStatus] = useState("idle"); // idle | running | done | error
+  const [status, setStatus] = useState("idle");
   const [rewardTotal, setRewardTotal] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [theme, setTheme] = useState("dark");
   const [hardcore, setHardcore] = useState(false);
-   const [trajectory, setTrajectory] = useState([]);
+  const [trajectory, setTrajectory] = useState([]);
   const [totalTokens, setTotalTokens] = useState(0);
   const [evalResult, setEvalResult] = useState(null);
   const [evaluating, setEvaluating] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const esRef = useRef(null);
   const feedRef = useRef(null);
-  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
-    if (feedRef.current) {
-      feedRef.current.scrollTop = feedRef.current.scrollHeight;
-    }
+    if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [steps]);
 
   function resetEnv() {
     const sid = localStorage.getItem("vom_session_id") || "sid_" + Math.random().toString(36).slice(2);
     localStorage.setItem("vom_session_id", sid);
-    
     setSteps([]);
     setScore(0);
     setFinalScore(null);
-    setTotalSteps(0);
-    setRewardTotal(0);
     setDone(false);
     setStatus("idle");
     setErrorMessage("");
@@ -412,121 +167,74 @@ export default function AgentDashboard() {
     setEvaluating(false);
     setTotalTokens(0);
     setResetting(true);
-    
     fetch(`${API_BASE}/api/reset`, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "X-Session-Id": sid
-      },
+      headers: { "Content-Type": "application/json", "X-Session-Id": sid },
       body: JSON.stringify({ task_id: taskId, hardcore: hardcore }),
     })
-      .then((res) => res.json())
-      .then((data) => {
-        setObservation(data);
-        setResetting(false);
-      })
+      .then(res => res.json())
+      .then(data => { setObservation(data); setResetting(false); })
       .catch(() => setResetting(false));
   }
 
-  useEffect(() => {
-    resetEnv();
-  }, [taskId]);
+  useEffect(() => { resetEnv(); }, [taskId]);
 
   function startAgent() {
     if (esRef.current) esRef.current.close();
     setSteps([]);
     setScore(0);
     setFinalScore(null);
-    setTotalSteps(0);
-    setObservation(null);
-    setRewardTotal(0);
     setRunning(true);
     setDone(false);
     setStatus("running");
     setTrajectory([]);
     setTotalTokens(0);
-
     const es = new EventSource(`${API_BASE}/api/run_agent?task_id=${taskId}&hardcore=${hardcore}`);
     esRef.current = es;
-
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.event === "start") {
-        setStatus("running");
-      } else if (data.event === "step") {
-        setSteps((prev) => [...prev, data]);
-        setScore(data.score ?? 0);
-        setTotalSteps(data.step);
-        setObservation(data.observation);
-        setRewardTotal((prev) => prev + (data.reward ?? 0));
-        
-        // 📊 Dynamic Cost Tracking & Trajectory
-        const stepTokens = Math.floor((JSON.stringify(data.observation).length + JSON.stringify(data.action).length) / 3.5);
-        setTotalTokens(prev => prev + stepTokens);
-        setTrajectory(prev => [...prev, {
-          step: data.step,
-          action: data.action,
-          observation: data.observation,
-          reward: data.reward,
-          score: data.score,
-          timestamp: new Date().toISOString()
-        }]);
-
-         if (data.done) {
-          setDone(true);
-          setFinalScore(data.score);
-          setStatus("done");
-          setRunning(false);
-          es.close();
-          runEvaluation([...trajectory, {
-            step: data.step,
-            action: data.action,
-            observation: data.observation,
-            reward: data.reward,
-            score: data.score,
-            timestamp: new Date().toISOString()
-          }]);
+        if (data.event === "start") { setStatus("running"); }
+        else if (data.event === "step") {
+          setSteps(prev => [...prev, data]);
+          setScore(data.score || 0);
+          setObservation(data.observation);
+          setRewardTotal(prev => prev + (data.reward || 0));
+          const stepTokens = Math.floor((JSON.stringify(data.observation || {}).length + JSON.stringify(data.action || {}).length) / 3.5);
+          setTotalTokens(prev => prev + stepTokens);
+          setTrajectory(prev => [...prev, { step: data.step, action: data.action, reward: data.reward, score: data.score }]);
+          if (data.done) {
+            setDone(true);
+            setFinalScore(data.score);
+            setStatus("done");
+            setRunning(false);
+            es.close();
+            runEvaluation([...trajectory, data]);
+          }
+        } else if (data.event === "end") {
+            setFinalScore(data.final_score);
+            setDone(true);
+            setStatus("done");
+            setRunning(false);
+            es.close();
+            runEvaluation(trajectory);
+        } else if (data.event === "error") {
+            setErrorMessage(data.message);
+            setStatus("error");
+            setRunning(false);
+            es.close();
         }
-      } else if (data.event === "end") {
-        setFinalScore(data.final_score);
-        setTotalSteps(data.total_steps);
-        setDone(true);
-        setStatus("done");
-        setRunning(false);
-        es.close();
-        runEvaluation(trajectory);
-      } else if (data.event === "loop_detected") {
+      } catch (e) {
+        console.error("Parse Error", e);
         setStatus("error");
-        setErrorMessage("Safety Check: Agent detected in infinite loop.");
-        setFinalScore(data.score || score); // Capture the server-provided score or the current UI score
-        setRunning(false);
-        setDone(true);
-        es.close();
-      } else if (data.event === "error") {
-        setErrorMessage(data.message || "Unknown backend error");
-        setStatus("error");
-        setRunning(false);
-      }
-    } catch (e) {
-      console.error("Dashboard Sync Error:", e);
-        setStatus("error");
-        setErrorMessage("Dashboard Sync Failure: " + e.message);
-        es.close();
+        setErrorMessage("Data processing error");
       }
     };
-
-    es.onerror = (err) => {
-      console.error("SSE Error:", err);
-      setStatus(done ? "done" : "connection_error");
-      setRunning(false);
-      es.close();
-    };
+    es.onerror = () => { setStatus("error"); setErrorMessage("Connection lost"); setRunning(false); es.close(); };
   }
 
-   async function runEvaluation(fullTrajectory) {
-    if (!fullTrajectory || fullTrajectory.length === 0) return;
+  async function runEvaluation(fullTrajectory) {
+    if (!fullTrajectory?.length) return;
     setEvaluating(true);
     try {
       const res = await fetch(`${API_BASE}/api/evaluate`, {
@@ -536,530 +244,65 @@ export default function AgentDashboard() {
       });
       const data = await res.json();
       setEvalResult(data);
-    } catch (err) {
-      console.error("Evaluation Error:", err);
-    } finally {
-      setEvaluating(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setEvaluating(false); }
   }
 
-  function stopAgent() {
-    if (esRef.current) esRef.current.close();
-    setRunning(false);
-    setStatus("idle");
-  }
-
-  const meta = TASK_META[taskId];
+  const meta = TASK_META[taskId] || { label: "Unknown", color: "#ccc", desc: "" };
   const emails = observation?.emails || [];
   const tickets = observation?.tickets || [];
 
-  function downloadTrace() {
-    const trace = {
-      task_id: taskId,
-      hardcore: hardcore,
-      final_score: finalScore,
-      steps: totalSteps,
-      trajectory: trajectory,
-      security_audit: taskId === "expert_01" ? (
-        finalScore === 1.0 ? "PASSED: Phishing trap detected and ignored." : "FAILED: Potential security engagement detected."
-      ) : "N/A",
-      exported_at: new Date().toISOString(),
-      version: "OpenEnv-v0.2.1-Elite"
-    };
-    const blob = new Blob([JSON.stringify(trace, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `eval_trace_${taskId}_${new Date().getTime()}.json`;
-    a.click();
-  }
-
   return (
-    <div className={theme === "light" ? "light-mode" : ""}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
-
-        :root {
-          --bg-main: #020817;
-          --bg-panel: #02081799;
-          --bg-card: #0f172a;
-          --text-main: #f1f5f9;
-          --text-muted: #94a3b8;
-          --text-dim: #475569;
-          --border: #1e293b;
-          --accent: #0ea5e9;
-          --accent-glow: #0ea5e920;
-        }
-
-        .light-mode {
-          --bg-main: #f1f5f9;
-          --bg-panel: #ffffff;
-          --bg-card: #ffffff;
-          --text-main: #0f172a;
-          --text-muted: #334155;
-          --text-dim: #64748b;
-          --border: #cbd5e1;
-          --accent: #0284c7;
-          --accent-glow: #0284c710;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-          background: var(--bg-main);
-          color: var(--text-main);
-          font-family: 'DM Sans', sans-serif;
-          min-height: 100vh;
-          transition: background 0.3s ease, color 0.3s ease;
-        }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: var(--bg-main); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-        @keyframes pulse-dot {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(-8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
-      <div style={{
-        minHeight: "100vh",
-        background: "var(--bg-main)",
-        backgroundImage: theme === "dark" 
-          ? "radial-gradient(ellipse at 20% 0%, #0ea5e920 0%, transparent 50%), radial-gradient(ellipse at 80% 100%, #f9731620 0%, transparent 50%)"
-          : "none",
-        padding: "0",
-      }}>
-
-        {/* Header */}
-        <div style={{
-          borderBottom: "1px solid var(--border)",
-          padding: "16px 32px",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          background: "var(--bg-panel)",
-          backdropFilter: theme === "dark" ? "blur(12px)" : "none",
-          position: "sticky", top: 0, zIndex: 100,
-          boxShadow: theme === "light" ? "0 1px 3px rgba(0,0,0,0.05)" : "none"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <div style={{
-              width: "42px", height: "42px",
-              background: "linear-gradient(135deg, #0ea5e9, #6366f1)",
-              borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "20px",
-              boxShadow: theme === "dark" ? "0 8px 24px rgba(0,0,0,0.5)" : "0 8px 20px rgba(14, 165, 233, 0.15)",
-              border: "2.5px solid rgba(255,255,255,0.15)",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-            }}>⚡</div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <h1 style={{
-                  fontFamily: "'Syne', sans-serif", fontSize: "19px",
-                  fontWeight: "800", letterSpacing: "-0.02em",
-                  color: theme === "dark" ? "transparent" : "var(--text-main)",
-                  background: theme === "dark" ? "linear-gradient(90deg, #f1f5f9, #94a3b8)" : "none",
-                  WebkitBackgroundClip: theme === "dark" ? "text" : "unset",
-                  WebkitTextFillColor: theme === "dark" ? "transparent" : "unset",
-                }}>
-                  OpenEnv Elite
-                </h1>
-                <span style={{
-                  fontSize: "9px", background: "linear-gradient(135deg, #f97316, #ef4444)",
-                  color: "white", padding: "2px 8px", borderRadius: "4px",
-                  fontWeight: "800", fontFamily: "'DM Mono', monospace"
-                }}>ROUND 2 READINESS V0.3</span>
-              </div>
-              <p style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", marginTop: "-3px", fontWeight: "500" }}>
-                Autonomous ReAct Reasoning Agent
-              </p>
-            </div>
+    <div style={{ background: "var(--bg-main)", color: "var(--text-main)", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "'DM Sans', sans-serif" }}>
+       <style>{`
+          :root { --bg-main: #020817; --bg-card: #0f172a; --text-main: #f1f5f9; --text-muted: #94a3b8; --border: #1e293b; --accent: #0ea5e9; }
+          * { box-sizing: border-box; }
+          body { margin: 0; }
+       `}</style>
+       <header style={{ padding: "16px 40px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ margin: 0, fontSize: "1.2rem", color: "var(--accent)" }}>Virtual Ops Manager</h1>
+          <div style={{ display: "flex", gap: "20px" }}>
+            <select value={taskId} onChange={e => setTaskId(e.target.value)} disabled={running}>
+              {Object.keys(TASK_META).map(k => <option key={k} value={k}>{TASK_META[k].label}</option>)}
+            </select>
+            <button onClick={startAgent} disabled={running || resetting}>{running ? "Running..." : "Start Agent"}</button>
           </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-            {/* Elite Controls */}
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", borderRight: "1px solid var(--border)", paddingRight: "24px" }}>
-              <button 
-                onClick={() => setTheme(prev => prev === "dark" ? "light" : "dark")}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "18px", opacity: 0.8 }}
-                title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-              >
-                {theme === "dark" ? "☀️" : "🌙"}
-              </button>
-
-              <div 
-                onClick={() => {
-                  if (resetting) return;
-                  const newVal = !hardcore;
-                  setHardcore(newVal);
-                  if (running) stopAgent();
-                  
-                  // Auto-reset when toggling hardcore to show effect immediately
-                  setSteps([]);
-                  setScore(0);
-                  setTotalSteps(0);
-                  setResetting(true);
-                  
-                  fetch(`${API_BASE}/api/reset`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ task_id: taskId, hardcore: newVal }),
-                  })
-                    .then((res) => res.json())
-                    .then((data) => {
-                      setObservation(data);
-                      setResetting(false);
-                    })
-                    .catch(() => setResetting(false));
-                }}
-                style={{ 
-                  display: "flex", alignItems: "center", gap: "8px", cursor: "pointer",
-                  padding: "6px 12px", borderRadius: "20px", border: `1px solid ${hardcore ? "#f97316" : "var(--border)"}`,
-                  background: hardcore ? "#f9731610" : "transparent",
-                  transition: "all 0.2s ease"
-                }}
-              >
-                <div style={{ 
-                  width: "8px", height: "8px", borderRadius: "50%", 
-                  background: hardcore ? "#f97316" : "var(--text-dim)",
-                  boxShadow: hardcore ? "0 0 8px #f97316" : "none",
-                  animation: resetting ? "pulse-dot 0.6s infinite" : "none"
-                }} />
-                <span style={{ fontSize: "10px", color: hardcore ? "#f97316" : "var(--text-muted)", fontWeight: "700", fontFamily: "'DM Mono', monospace" }}>
-                  {resetting ? "SYNCING..." : "HARDCORE MODE"}
-                </span>
+       </header>
+       <main style={{ flex: 1, padding: "20px 40px", display: "grid", gridTemplateColumns: "1fr 350px", gap: "20px" }}>
+           <section style={{ background: "var(--bg-card)", borderRadius: "12px", border: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "#1e293b33", display: "flex", gap: "10px" }}>
+                 <span style={{ color: meta.color }}>●</span> <strong>{meta.label} Mission</strong>
               </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              {status === "running" && (
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <div style={{
-                    width: "7px", height: "7px", borderRadius: "50%",
-                    background: "#4ade80",
-                    animation: "pulse-dot 1s ease-in-out infinite"
-                  }} />
-                  <span style={{ fontSize: "11px", color: "#4ade80", fontFamily: "'DM Mono', monospace" }}>
-                    RUNNING
-                  </span>
-                </div>
-              )}
-              {status === "done" && (
-                <span style={{ fontSize: "11px", color: "#4ade80", fontFamily: "'DM Mono', monospace" }}>
-                  ✓ COMPLETE
-                </span>
-              )}
-              {status === "error" && (
-                <span style={{ fontSize: "11px", color: "#f87171", fontFamily: "'DM Mono', monospace" }}>
-                  ⚠ {errorMessage || "ERROR"}
-                </span>
-              )}
-            {status === "connection_error" && (
-              <span style={{ fontSize: "11px", color: "#f87171", fontFamily: "'DM Mono', monospace" }}>
-                ⚠ NEXT STEP FAILED / CONNECTION ERROR
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-    {/* Main layout */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "300px 1fr 260px",
-          gap: "0",
-          height: "calc(100vh - 69px)",
-        }}>
-
-          {/* LEFT PANEL — Controls + Score */}
-          <div style={{
-            background: "var(--bg-main)",
-            borderRight: "1px solid var(--border)",
-            padding: "24px 20px",
-            overflowY: "auto",
-            display: "flex", flexDirection: "column", gap: "24px",
-          }}>
-
-            {/* Task selector */}
-            <div>
-              <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "10px" }}>
-                SELECT TASK
-              </p>
-              {Object.entries(TASK_META).map(([id, m]) => (
-                <button key={id} onClick={() => !running && setTaskId(id)} style={{
-                  width: "100%", padding: "12px 14px", marginBottom: "6px",
-                  background: taskId === id ? `${m.color}18` : "var(--bg-card)",
-                  border: `1px solid ${taskId === id ? m.color + "66" : "var(--border)"}`,
-                  borderRadius: "8px", cursor: running ? "not-allowed" : "pointer",
-                  textAlign: "left", transition: "all 0.2s ease",
-                  opacity: running && taskId !== id ? 0.4 : 1,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-                    <span style={{
-                      fontSize: "10px", fontFamily: "'DM Mono', monospace",
-                      color: m.color, fontWeight: "600"
-                    }}>{m.label}</span>
-                    <span style={{ fontSize: "11px", color: "var(--text-main)", fontWeight: "600", fontFamily: "'DM Sans', sans-serif" }}>
-                      {id}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Sans', sans-serif" }}>
-                    {m.desc}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {/* Run button */}
-            <button onClick={running ? stopAgent : startAgent} style={{
-              width: "100%", padding: "14px",
-              background: running
-                ? "linear-gradient(135deg, #7f1d1d, #991b1b)"
-                : "linear-gradient(135deg, #0ea5e9, #6366f1)",
-              border: "none", borderRadius: "10px",
-              color: "#fff", fontSize: "14px",
-              fontFamily: "'DM Sans', sans-serif", fontWeight: "700",
-              cursor: "pointer", letterSpacing: "0.02em",
-              transition: "opacity 0.2s ease",
-            }}
-              onMouseEnter={e => e.target.style.opacity = "0.85"}
-              onMouseLeave={e => e.target.style.opacity = "1"}
-            >
-              {running ? "⏹ Stop Agent" : "▶ Run Agent"}
-            </button>
-
-            {/* Score ring */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-              <ScoreRing score={score} />
-              {finalScore !== null && (
-                <div style={{
-                  fontSize: "12px", color: "#4ade80",
-                  fontFamily: "'DM Mono', monospace", textAlign: "center",
-                  animation: "fadeSlideIn 0.4s ease"
-                }}>
-                  Final: {(finalScore * 100).toFixed(0)}% in {totalSteps} steps
-                </div>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div style={{
-              background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: "10px", padding: "14px", display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr", gap: "12px"
-            }}>
-              {[
-                { label: "Steps", value: totalSteps },
-                { label: "Auto-Correct", value: steps.filter((s) => s.was_corrected).length },
-                { label: "Reward", value: rewardTotal.toFixed(1) },
-                { label: "Emails", value: emails.filter(e => e.read).length + "/" + emails.length },
-                { label: "Tickets", value: tickets.length },
-                { label: "Spam", value: emails.some(e => e.sender.includes("secure-update")) ? "1 Trap" : "0" }
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", marginBottom: "2px" }}>
-                    {label}
-                  </p>
-                  <p style={{ fontSize: "20px", color: "var(--text-main)", fontFamily: "'DM Mono', monospace", fontWeight: "600" }}>
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Analytics */}
-            {done && (
-              <div style={{
-                marginTop: "12px", background: "var(--bg-card)", border: "1px solid var(--border)",
-                borderRadius: "10px", padding: "14px", animation: "fadeSlideIn 0.4s ease"
-              }}>
-                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", marginBottom: "12px", letterSpacing: "0.1em" }}>
-                  COMPUTE ANALYTICS
-                </p>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>Est. Tokens:</span>
-                  <span style={{ fontSize: "11px", color: "var(--text-main)", fontFamily: "'DM Mono', monospace", fontWeight: "600" }}>{totalTokens}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>Inf. Cost:</span>
-                  <span style={{ fontSize: "11px", color: "var(--text-main)", fontFamily: "'DM Mono', monospace", fontWeight: "600" }}>${(totalTokens / 1000000 * 0.15).toFixed(5)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>Avg Latency:</span>
-                  <span style={{ fontSize: "11px", color: "#4ade80", fontFamily: "'DM Mono', monospace", fontWeight: "600" }}>~412ms</span>
-                </div>
-              </div>
-            )}
-
-            {/* Reviewer Panel — Spec Compliance */}
-            <div style={{
-              marginTop: "auto", paddingTop: "24px",
-              borderTop: "1px solid var(--border)",
-            }}>
-              <p style={{ fontSize: "10px", color: "var(--accent)", fontFamily: "'DM Mono', monospace", marginBottom: "12px", letterSpacing: "0.1em", fontWeight: "700" }}>
-                💎 ELITE REVIEWER PANEL
-              </p>
-              <div style={{ background: "var(--accent-glow)", border: "1px solid #0ea5e922", borderRadius: "8px", padding: "12px", marginBottom: "16px" }}>
-                <p style={{ fontSize: "11px", color: "var(--text-main)", marginBottom: "8px", fontWeight: "600" }}>Task Objectives:</p>
-                <ul style={{ paddingLeft: "16px", margin: 0 }}>
-                  <li style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Deterministic Grader: 100%</li>
-                  <li style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Shaped Reward Signal: Yes</li>
-                  <li style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "4px" }}>Safety Trap Present: {taskId === "expert_01" ? "Yes" : "No"}</li>
-                  <li style={{ fontSize: "11px", color: "var(--text-muted)" }}>Spec: OpenEnv v0.2.1-Elite</li>
-                </ul>
-              </div>
-
-              {done && (
-                <button 
-                  onClick={downloadTrace}
-                  style={{
-                    width: "100%", padding: "10px", borderRadius: "6px",
-                    background: "var(--accent)", color: "white", border: "none",
-                    fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: "600",
-                    cursor: "pointer", transition: "all 0.2s ease"
-                  }}
-                >
-                  Download Evaluation Trace
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* CENTER PANEL — Step feed */}
-          <div style={{
-            background: "var(--bg-main)",
-            display: "flex", flexDirection: "column",
-            borderRight: "1px solid var(--border)",
-          }}>
-            <div style={{
-              padding: "16px 20px 12px",
-              borderBottom: "1px solid var(--border)",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}>
-              <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em" }}>
-                AGENT ACTIVITY FEED
-              </p>
-              {steps.length > 0 && (
-                <p style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>
-                  {steps.length} actions
-                </p>
-              )}
-            </div>
-
-            <div ref={feedRef} style={{
-              flex: 1, overflowY: "auto",
-              padding: "16px 20px",
-            }}>
-              {steps.length === 0 && !running && (
-                <div style={{
-                  display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center",
-                  height: "100%", gap: "12px", opacity: 0.4,
-                }}>
-                  <div style={{ fontSize: "48px" }}>🤖</div>
-                  <p style={{ fontSize: "13px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}>
-                    Select a task and run the agent
-                  </p>
-                </div>
-              )}
-
-              {steps.length === 0 && running && (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: "10px",
-                  padding: "14px 16px", background: "var(--bg-card)",
-                  border: "1px solid var(--border)", borderRadius: "8px",
-                }}>
-                  <div style={{
-                    width: "8px", height: "8px", borderRadius: "50%",
-                    background: "var(--accent)",
-                    animation: "pulse-dot 0.8s ease-in-out infinite"
-                  }} />
-                  <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>
-                    Initializing agent...
-                  </span>
-                </div>
-              )}
-
-              {steps.map((step, i) => (
-                <StepCard key={i} step={step} index={i} />
-              ))}
-
-              {done && (
-                <div style={{
-                  padding: "16px", marginTop: "8px",
-                  background: theme === "dark" ? "#052e16" : "#f0fdf4",
-                  border: `1px solid ${theme === "dark" ? "#166534" : "#bbf7d0"}`,
-                  borderRadius: "8px", textAlign: "center",
-                  animation: "fadeSlideIn 0.4s ease",
-                }}>
-                  <p style={{ fontSize: "14px", color: "#22c55e", fontFamily: "'DM Sans', sans-serif", fontWeight: "700" }}>
-                    ✅ Task Complete — Score: {(finalScore * 100).toFixed(0)}%
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-           {/* RIGHT PANEL — Live state & Analytics */}
-          <div style={{ background: "var(--bg-main)", overflowY: "auto", padding: "16px", borderLeft: "1px solid var(--border)" }}>
-            {(running || trajectory.length > 0) ? (
-              <div style={{ animation: "fadeSlideIn 0.4s ease" }}>
-                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "16px" }}>
-                  FORENSIC ANALYTICS
-                </p>
-                
-                <TrajectoryChart data={trajectory} />
-                <JudgeVerdict result={evalResult} evaluating={evaluating} />
-
-                <div style={{ marginTop: "24px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
-                  <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "12px" }}>
-                    MISSION STATE
-                  </p>
-                  <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
-                    <div style={{ flex: 1, padding: "10px", background: "var(--bg-card)", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                      <p style={{ fontSize: "9px", color: "var(--text-dim)", marginBottom: "4px" }}>INBOX</p>
-                      <p style={{ fontSize: "16px", fontWeight: "700" }}>{emails.filter(e => !e.read).length}</p>
+              <div ref={feedRef} style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+                 {steps.length === 0 && <p style={{ color: "var(--text-muted)" }}>Agent standby. Click Start to begin mission.</p>}
+                 {steps.map((s, i) => (
+                    <div key={i} style={{ marginBottom: "16px", padding: "12px", background: "#1e293b66", borderRadius: "8px" }}>
+                       <strong>Step {s.step}: {s.action?.action}</strong>
+                       <p style={{ margin: "5px 0 0", fontSize: "0.9rem", color: "var(--text-muted)" }}>{s.action?.thought}</p>
                     </div>
-                    <div style={{ flex: 1, padding: "10px", background: "var(--bg-card)", borderRadius: "8px", border: "1px solid var(--border)" }}>
-                      <p style={{ fontSize: "9px", color: "var(--text-dim)", marginBottom: "4px" }}>TICKETS</p>
-                      <p style={{ fontSize: "16px", fontWeight: "700" }}>{tickets.length}</p>
-                    </div>
-                  </div>
-                </div>
+                 ))}
+                 {status === "error" && <p style={{ color: "#ef4444" }}>Error: {errorMessage}</p>}
               </div>
-            ) : (
-              <>
-                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", marginBottom: "12px" }}>
-                  INITIAL INBOX
-                </p>
-                {emails.length === 0 ? (
-                  <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>—</p>
-                ) : (
-                  emails.map(e => <EmailCard key={e.email_id} email={e} />)
-                )}
-
-                <p style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", margin: "20px 0 12px" }}>
-                  QUEUED TICKETS
-                </p>
-                {tickets.length === 0 ? (
-                  <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace" }}>No tickets active</p>
-                ) : (
-                  tickets.map(t => <TicketCard key={t.ticket_id} ticket={t} />)
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+           </section>
+           <aside style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+               <div style={{ background: "var(--bg-card)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border)", textAlign: "center" }}>
+                  <ScoreRing score={score} />
+               </div>
+               <div style={{ background: "var(--bg-card)", padding: "20px", borderRadius: "12px", border: "1px solid var(--border)" }}>
+                  <h3 style={{ marginTop: 0, fontSize: "0.9rem" }}>Mission Observation</h3>
+                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Emails: {emails.length} | Tickets: {tickets.length}</p>
+               </div>
+           </aside>
+       </main>
     </div>
+  );
+}
+
+// ── FINAL EXPORT WRAPPED IN SHIELD ──────────────────────────────────────────
+export default function AgentDashboard() {
+  return (
+    <DashboardErrorBoundary>
+      <AgentDashboardContent />
+    </DashboardErrorBoundary>
   );
 }
