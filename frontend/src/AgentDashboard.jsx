@@ -1,7 +1,7 @@
 // V0.2.1 - Last Refined: 2026-04-06T15:22:00
 import { useState, useEffect, useRef } from "react";
 
-const API_BASE = ""; // Support relative pathing for Hugging Face Spaces
+const API_BASE = window.location.port === "5173" ? "http://127.0.0.1:7860" : "";
 
 const TASK_META = {
   easy_01: { label: "Easy", color: "#4ade80", desc: "Reply to Alice's order delay" },
@@ -451,8 +451,9 @@ export default function AgentDashboard() {
     esRef.current = es;
 
     es.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.event === "start") {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === "start") {
         setStatus("running");
       } else if (data.event === "step") {
         setSteps((prev) => [...prev, data]);
@@ -507,6 +508,11 @@ export default function AgentDashboard() {
         setErrorMessage(data.message || "Unknown backend error");
         setStatus("error");
         setRunning(false);
+      }
+    } catch (e) {
+      console.error("Dashboard Sync Error:", e);
+        setStatus("error");
+        setErrorMessage("Dashboard Sync Failure: " + e.message);
         es.close();
       }
     };
